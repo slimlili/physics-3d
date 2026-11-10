@@ -1,3 +1,5 @@
 *.png
 __pycache__/
 .venv/
+.superpowers/
+tests/out_*.html

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>演示底座</title>
+<style>
+  :root{
+    --bg:#080F12;
+    --panel:rgba(12,26,32,.84);
+    --line:rgba(126,214,220,.22);
+    --ink:#E4F1F3;
+    --muted:#88A3AA;
+    --brand:#4ADE80;
+    --cyan:#7DD3FC;
+    --warn:#F2C14E;
+    --bad:#F87171;
+    --violet:#C4B5FD;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  canvas{display:block}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(ellipse at 50% 47%,transparent 44%,rgba(0,0,0,.5) 100%)}
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+  header{position:absolute;left:24px;top:20px;max-width:540px}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;color:var(--brand);opacity:.85;margin:0 0 6px}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.02em}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:6px;line-height:1.5}
+  .readout{position:absolute;left:24px;top:126px;display:grid;gap:7px;font-variant-numeric:tabular-nums}
+  .ro{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+  .ro b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;color:var(--ink);font-weight:500}
+  .ro span{min-width:108px}
+
+  .panel{position:absolute;right:22px;bottom:22px;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px 12px;backdrop-filter:blur(10px);width:250px}
+  .cap{font-size:11px;color:var(--muted);margin:0 0 6px;letter-spacing:.08em}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button,.act button{
+    flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+  .act{display:flex;gap:8px}
+  .act button:hover{border-color:var(--brand);color:var(--brand)}
+
+  .answer{position:absolute;left:24px;bottom:22px;pointer-events:auto;width:min(440px,calc(100vw - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    backdrop-filter:blur(10px);display:none}
+  .answer.on{display:block}
+  .answer h2{font-size:13px;margin:0 0 10px;color:var(--brand);letter-spacing:.06em}
+  .drift{font-size:12px;color:var(--warn);border:1px solid rgba(242,193,78,.35);
+    background:rgba(242,193,78,.10);border-radius:8px;padding:6px 9px;margin:0 0 10px}
+  .drift[hidden]{display:none}
+
+  .problem{position:absolute;right:22px;top:20px;max-width:min(420px,calc(100vw - 44px));
+    pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;backdrop-filter:blur(10px);font-size:12.5px;color:var(--muted)}
+  .problem summary{cursor:pointer;color:var(--ink);font-size:12.5px;list-style:none}
+  .problem summary::-webkit-details-marker{display:none}
+  .problem summary::before{content:"▸ ";color:var(--brand)}
+  .problem[open] summary::before{content:"▾ "}
+  .problem p{margin:8px 0 0;line-height:1.7;color:var(--muted)}
+
+  .hint{position:absolute;left:24px;bottom:8px;font-size:11px;color:var(--muted);opacity:.55}
+  @media (max-width:760px){
+    header{left:16px;top:12px;max-width:none;right:16px} h1{font-size:16px} h1 small{font-size:11px}
+    .readout{left:16px;top:104px;gap:4px} .ro span{min-width:86px} .ro b{font-size:14px}
+    .panel{left:12px;right:12px;bottom:12px;width:auto}
+    .answer{left:12px;right:12px;bottom:170px;width:auto}
+    .problem{right:12px;left:12px;top:auto;bottom:170px;max-width:none}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+  <header>
+    <p class="eyebrow" id="eyebrow">物理 · 三维演示</p>
+    <h1 id="demo-title">演示标题
+      <small id="demo-subtitle">副标题写题目条件</small>
+    </h1>
+  </header>
+
+  <div class="readout" id="readout">
+    <!-- 模板：把读数写在这里
+    <div class="ro"><span>半径 r</span><b id="ro-r">—</b></div>
+    -->
+  </div>
+
+  <details class="problem" id="problem">
+    <summary>题目原文</summary>
+    <p id="problem-text">（把题干放在这里）</p>
+  </details>
+
+  <div class="answer" id="answer">
+    <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
+    <h2>要点</h2>
+    <div id="answer-body" style="font-size:13px;line-height:1.75">（把结论放在这里）</div>
+  </div>
+
+  <div class="panel">
+    <div class="cap">播放速度</div>
+    <div class="seg" id="speed-row">
+      <button class="sp" id="btn-speed-0.25" data-s="0.25">¼×</button>
+      <button class="sp" id="btn-speed-0.5" data-s="0.5">½×</button>
+      <button class="sp" id="btn-speed-1" data-s="1" aria-pressed="true">1×</button>
+      <button class="sp" id="btn-speed-2" data-s="2">2×</button>
+    </div>
+    <div class="seg">
+      <button id="btn-answer" aria-pressed="false">看答案</button>
+    </div>
+    <div class="act">
+      <button id="pause">暂停</button>
+      <button id="reset">重播</button>
+    </div>
+  </div>
+
+  <div class="hint">拖动旋转视角 · 滚轮缩放 · 空格暂停 · R 重播</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../lib/three.module.js",
+    "three/addons/controls/OrbitControls.js": "../lib/OrbitControls.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ================= 舞台 ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080F12);
+scene.fog = new THREE.Fog(0x080F12, 16, 34);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(3, 2, 5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 0, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 2;
+controls.maxDistance = 20;
+
+scene.add(new THREE.AmbientLight(0xa8e6ee, 0.65));
+const key = new THREE.DirectionalLight(0xd9fbff, 1.0);
+key.position.set(4, 6, 8);
+scene.add(key);
+
+/* ================= 工具 ================= */
+function label3d(text, color = '#9FE6C4', size = 0.3) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 160;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = 'bold 56px "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 80, 82);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  const w = Math.max(0.18, text.length * 0.16);
+  s.scale.set(size * w / 0.3, size, 1);
+  return s;
+}
+
+function makeArrow(color = 0xF2C14E, len = 0.8) {
+  return new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), len, color, 0.14, 0.07);
+}
+
+function makeTrail(maxPoints = 4000, color = 0x8CF5C4) {
+  const pos = new Float32Array(maxPoints * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setDrawRange(0, 0);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false }));
+  line.renderOrder = 3;
+  line.frustumCulled = false;
+  let n = 0;
+  return {
+    line,
+    push(p) {
+      if (n >= maxPoints) return;
+      pos[n * 3] = p.x; pos[n * 3 + 1] = p.y; pos[n * 3 + 2] = p.z;
+      n++;
+      geo.setDrawRange(0, n);
+      geo.attributes.position.needsUpdate = true;
+    },
+    clear() { n = 0; geo.setDrawRange(0, 0); },
+    get count() { return n; },
+  };
+}
+
+function markDrift(on) {
+  const el = document.getElementById('drift');
+  if (el) el.hidden = !on;
+}
+
+let qDirty = false;
+function isDirty() {
+  const moved = [...document.querySelectorAll('input[type=range]')]
+    .some(el => Math.abs(+el.value - +el.defaultValue) > 1e-9);
+  return moved || qDirty;
+}
+
+/* ================= 控制 ================= */
+let speed = 1;
+let paused = false;
+let onReset = () => {};
+
+const spBtns = [...document.querySelectorAll('.sp')];
+function setSpeed(v) {
+  speed = v;
+  spBtns.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.s === v)));
+}
+spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
+
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
+document.getElementById('btn-answer').addEventListener('click', ev => {
+  const on = !document.getElementById('answer').classList.contains('on');
+  document.getElementById('answer').classList.toggle('on', on);
+  ev.currentTarget.setAttribute('aria-pressed', String(on));
+});
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause').textContent = paused ? '继续' : '暂停';
+}
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
+});
+
+/* === SCENE === */
+// 模板在这里放自己的场景与物理；下面只是一个证明能渲染的占位。
+const cube = new THREE.Mesh(
+  new THREE.BoxGeometry(0.8, 0.8, 0.8),
+  new THREE.MeshStandardMaterial({ color: 0x8FE3C8, emissive: 0x1E6B52, emissiveIntensity: 0.6 })
+);
+scene.add(cube);
+/* === END SCENE === */
+
+/* ================= 主循环 ================= */
+const clock = new THREE.Clock();
+let firstFrame = true;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05) * speed;
+
+  if (!paused) {
+    /* === SCENE UPDATE === */
+    cube.rotation.y += dt * 0.8;
+    cube.rotation.x += dt * 0.3;
+    /* === END SCENE UPDATE === */
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  if (firstFrame) {
+    firstFrame = false;
+    document.title = 'SHELL_OK';
+  }
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+animate();
+</script>
+</body>
+</html>

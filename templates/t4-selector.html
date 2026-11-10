@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T4 · 速度选择器</title>
+<style>
+  :root{
+    --bg:#080F12; --panel:rgba(12,26,32,.84); --line:rgba(126,214,220,.22);
+    --ink:#E4F1F3; --muted:#88A3AA; --brand:#4ADE80; --cyan:#7DD3FC;
+    --warn:#F2C14E; --bad:#F87171; --violet:#C4B5FD;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  canvas{display:block}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(ellipse at 50% 47%,transparent 44%,rgba(0,0,0,.5) 100%)}
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+  header{position:absolute;left:24px;top:20px;max-width:560px}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;color:var(--brand);opacity:.85;margin:0 0 6px}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.02em}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:6px;line-height:1.5}
+  .readout{position:absolute;left:24px;top:126px;display:grid;gap:7px;font-variant-numeric:tabular-nums}
+  .ro{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+  .ro b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;color:var(--ink);font-weight:500}
+  .ro span{min-width:96px}
+
+  .panel{position:absolute;right:22px;bottom:22px;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px 12px;backdrop-filter:blur(10px);width:260px}
+  .cap{font-size:11px;color:var(--muted);margin:0 0 6px;letter-spacing:.08em}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .row label{font-size:12.5px;color:var(--muted);width:62px;flex:none;white-space:nowrap}
+  .row output{font-family:ui-monospace,monospace;font-size:12.5px;width:38px;text-align:right;color:var(--ink)}
+  input[type=range]{flex:1;accent-color:var(--brand);height:20px;background:transparent}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button,.act button{
+    flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+  .act{display:flex;gap:8px}
+  .act button:hover{border-color:var(--brand);color:var(--brand)}
+
+  .answer{position:absolute;left:24px;bottom:22px;pointer-events:auto;width:min(440px,calc(100vw - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    backdrop-filter:blur(10px);display:none}
+  .answer.on{display:block}
+  .answer h2{font-size:13px;margin:0 0 10px;color:var(--brand);letter-spacing:.06em}
+  .answer .f{font-family:ui-monospace,Menlo,monospace;color:var(--cyan)}
+  .drift{font-size:12px;color:var(--warn);border:1px solid rgba(242,193,78,.35);
+    background:rgba(242,193,78,.10);border-radius:8px;padding:6px 9px;margin:0 0 10px}
+  .drift[hidden]{display:none}
+
+  .problem{position:absolute;right:22px;top:20px;max-width:min(420px,calc(100vw - 44px));
+    pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;backdrop-filter:blur(10px);font-size:12.5px;color:var(--muted)}
+  .problem summary{cursor:pointer;color:var(--ink);font-size:12.5px;list-style:none}
+  .problem summary::-webkit-details-marker{display:none}
+  .problem summary::before{content:"▸ ";color:var(--brand)}
+  .problem[open] summary::before{content:"▾ "}
+  .problem p{margin:8px 0 0;line-height:1.7;color:var(--muted)}
+
+  .hint{position:absolute;left:24px;bottom:8px;font-size:11px;color:var(--muted);opacity:.55}
+  @media (max-width:760px){
+    header{left:16px;top:12px;max-width:none;right:16px} h1{font-size:16px} h1 small{font-size:11px}
+    .readout{left:16px;top:104px;gap:4px} .ro span{min-width:76px} .ro b{font-size:14px}
+    .panel{left:12px;right:12px;bottom:12px;width:auto}
+    .answer{left:12px;right:12px;bottom:190px;width:auto}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+  <header>
+    <p class="eyebrow">磁场 · 三维演示</p>
+    <h1>复合场中的速度选择器
+      <small>电场力与洛伦兹力方向相反 · 只有 v = E/B 的粒子能直线通过</small>
+    </h1>
+  </header>
+
+  <div class="readout">
+    <div class="ro"><span>筛选速度 E/B</span><b id="ro-sel">—</b></div>
+    <div class="ro"><span>当前速度 v</span><b id="ro-v">—</b></div>
+    <div class="ro"><span>状态</span><b id="ro-state">—</b></div>
+  </div>
+
+  <details class="problem">
+    <summary>题目原文</summary>
+    <p>把这道题的题干放在这里。演示默认条件：两平行极板间同时有竖直电场 E 与垂直纸面向外的磁场 B，粒子水平射入。</p>
+  </details>
+
+  <div class="answer" id="answer">
+    <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
+    <h2>要点</h2>
+    <div id="answer-body" style="font-size:13px;line-height:1.75">
+      电场力与洛伦兹力方向相反，大小分别为 <span class="f">qE</span> 与 <span class="f">qvB</span>。<br>
+      直线通过的条件：<span class="f">qE = qvB → v = E/B</span>。<br>
+      速度偏大时洛伦兹力占优、向下偏；偏小时电场力占优、向上偏。
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label for="v">速率 v</label>
+      <input id="v" type="range" min="0.3" max="2.0" step="0.05" value="1">
+      <output id="v-out">1.00</output>
+    </div>
+    <div class="row">
+      <label for="b">磁感应 B</label>
+      <input id="b" type="range" min="0.5" max="2.5" step="0.05" value="1">
+      <output id="b-out">1.00</output>
+    </div>
+    <div class="seg">
+      <button id="q-pos" aria-pressed="true">正电荷 +q</button>
+      <button id="q-neg" aria-pressed="false">负电荷 −q</button>
+    </div>
+    <div class="cap">播放速度</div>
+    <div class="seg" id="speed-row">
+      <button class="sp" id="btn-speed-0.25" data-s="0.25">¼×</button>
+      <button class="sp" id="btn-speed-0.5" data-s="0.5">½×</button>
+      <button class="sp" id="btn-speed-1" data-s="1" aria-pressed="true">1×</button>
+      <button class="sp" id="btn-speed-2" data-s="2">2×</button>
+    </div>
+    <div class="seg">
+      <button id="btn-answer" aria-pressed="false">看答案</button>
+    </div>
+    <div class="act">
+      <button id="pause">暂停</button>
+      <button id="reset">重播</button>
+    </div>
+  </div>
+
+  <div class="hint">拖动旋转视角 · 滚轮缩放 · 空格暂停 · R 重播</div>
+</div>
+
+<script id="expect" type="application/json">{"sel": 1}</script>
+<script src="../src/physics.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../lib/three.module.js",
+    "three/addons/controls/OrbitControls.js": "../lib/OrbitControls.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ================= 舞台 ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080F12);
+scene.fog = new THREE.Fog(0x080F12, 16, 34);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, -1.6, 5.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, -0.6, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 2;
+controls.maxDistance = 18;
+
+scene.add(new THREE.AmbientLight(0xa8e6ee, 0.65));
+const key = new THREE.DirectionalLight(0xd9fbff, 1.0);
+key.position.set(4, 6, 8);
+scene.add(key);
+
+/* ================= 工具（与 shell 一致） ================= */
+function label3d(text, color = '#9FE6C4', size = 0.3) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 160;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = 'bold 56px "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 80, 82);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  const w = Math.max(0.18, text.length * 0.16);
+  s.scale.set(size * w / 0.3, size, 1);
+  return s;
+}
+
+function makeArrow(color = 0xF2C14E, len = 0.8) {
+  return new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), len, color, 0.14, 0.07);
+}
+
+function makeTrail(maxPoints = 4000, color = 0x8CF5C4) {
+  const pos = new Float32Array(maxPoints * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setDrawRange(0, 0);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false }));
+  line.renderOrder = 3;
+  line.frustumCulled = false;
+  let n = 0;
+  return {
+    line,
+    push(p) {
+      if (n >= maxPoints) return;
+      pos[n * 3] = p.x; pos[n * 3 + 1] = p.y; pos[n * 3 + 2] = p.z;
+      n++;
+      geo.setDrawRange(0, n);
+      geo.attributes.position.needsUpdate = true;
+    },
+    clear() { n = 0; geo.setDrawRange(0, 0); },
+    get count() { return n; },
+  };
+}
+
+function markDrift(on) {
+  const el = document.getElementById('drift');
+  if (el) el.hidden = !on;
+}
+
+let qDirty = false;
+function isDirty() {
+  const moved = [...document.querySelectorAll('input[type=range]')]
+    .some(el => Math.abs(+el.value - +el.defaultValue) > 1e-9);
+  return moved || qDirty;
+}
+
+/* ================= 控制 ================= */
+let speed = 1;
+let paused = false;
+let onReset = () => {};
+
+const spBtns = [...document.querySelectorAll('.sp')];
+function setSpeed(v) {
+  speed = v;
+  spBtns.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.s === v)));
+}
+spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
+
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
+document.getElementById('btn-answer').addEventListener('click', ev => {
+  const on = !document.getElementById('answer').classList.contains('on');
+  document.getElementById('answer').classList.toggle('on', on);
+  ev.currentTarget.setAttribute('aria-pressed', String(on));
+});
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause').textContent = paused ? '继续' : '暂停';
+}
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
+});
+
+/* === SCENE === */
+const MASS = 1;
+const S = { v: 1, E: 1, B: 1, q: 1, x: 0, y: 0, vx: 1, vy: 0 };
+
+const selSpeed = () => PHYS.t4.selectorSpeed(S.E, S.B);
+const passes = () => PHYS.t4.willPass(S.v, S.E, S.B);
+
+// 极板（y = ±0.9）
+const plateGeo = new THREE.BoxGeometry(6, 0.06, 1.6);
+const plateMat = new THREE.MeshStandardMaterial({ color: 0x5FB3C4, emissive: 0x14424E, emissiveIntensity: .6, roughness: .6 });
+const top = new THREE.Mesh(plateGeo, plateMat); top.position.set(2.2, 0.9, 0);
+const bot = new THREE.Mesh(plateGeo, plateMat); bot.position.set(2.2, -0.9, 0);
+scene.add(top, bot);
+
+// 电场：竖直向上（+y）
+const eGroup = new THREE.Group();
+for (let x = -0.4; x <= 4.9; x += 0.75) {
+  for (let z = -0.6; z <= 0.6; z += 0.6) {
+    const a = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x, -0.82, z), 1.5, 0xF2C14E, 0.12, 0.06);
+    a.line.material.transparent = a.cone.material.transparent = true;
+    a.line.material.opacity = 0.16; a.cone.material.opacity = 0.28;
+    eGroup.add(a);
+  }
+}
+scene.add(eGroup);
+
+// 磁场：垂直纸面向外（+z）
+const bGroup = new THREE.Group();
+for (let x = -0.2; x <= 4.9; x += 1.0) {
+  for (let y = -0.6; y <= 0.6; y += 0.6) {
+    const a = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(x, y, -0.5), 0.9, 0x5FB3C4, 0.1, 0.05);
+    a.line.material.transparent = a.cone.material.transparent = true;
+    a.line.material.opacity = 0.12; a.cone.material.opacity = 0.2;
+    bGroup.add(a);
+  }
+}
+scene.add(bGroup);
+
+const particle = new THREE.Mesh(
+  new THREE.SphereGeometry(0.07, 28, 20),
+  new THREE.MeshStandardMaterial({ color: 0xA7F3D0, emissive: 0x34D399, emissiveIntensity: 2.0, roughness: .35 })
+);
+scene.add(particle);
+const pLight = new THREE.PointLight(0x34D399, 1.4, 4, 2);
+scene.add(pLight);
+
+const trail = makeTrail(5000);
+scene.add(trail.line);
+
+const vArrow = makeArrow(0xF2C14E, 0.6);
+const eArrow = makeArrow(0xC4B5FD, 0.5);      // 电场力
+const bArrow = makeArrow(0x7DD3FC, 0.5);      // 洛伦兹力
+eArrow.setDirection(new THREE.Vector3(0, 1, 0));
+scene.add(vArrow, eArrow, bArrow);
+
+function resetParticle() {
+  S.x = 0; S.y = 0;
+  S.v = +ui.v.value;
+  S.vx = S.v; S.vy = 0;
+  trail.clear();
+}
+
+function updateReadout() {
+  document.getElementById('ro-sel').textContent = selSpeed().toFixed(2);
+  document.getElementById('ro-v').textContent = S.v.toFixed(2);
+  const diff = S.q * (S.v - selSpeed());          // >0：洛伦兹力占优，向下偏
+  document.getElementById('ro-state').textContent =
+    Math.abs(S.v - selSpeed()) < 1e-6 ? '直线通过' : (diff > 0 ? '向下偏' : '向上偏');
+}
+
+const ui = {
+  v: document.getElementById('v'), b: document.getElementById('b'),
+  vOut: document.getElementById('v-out'), bOut: document.getElementById('b-out'),
+  qPos: document.getElementById('q-pos'), qNeg: document.getElementById('q-neg'),
+};
+// 把第二个滑块改成电场 E
+document.querySelector('label[for="b"]').textContent = '电场 E';
+ui.b.value = 1;
+ui.bOut.textContent = '1.00';
+
+ui.v.addEventListener('input', () => {
+  S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2);
+  markDrift(isDirty()); resetParticle(); updateReadout();
+});
+ui.b.addEventListener('input', () => {
+  S.E = +ui.b.value; ui.bOut.textContent = S.E.toFixed(2);
+  markDrift(isDirty()); resetParticle(); updateReadout();
+});
+ui.qPos.addEventListener('click', () => {
+  S.q = 1; qDirty = true;
+  ui.qPos.setAttribute('aria-pressed', 'true');
+  ui.qNeg.setAttribute('aria-pressed', 'false');
+  markDrift(isDirty()); resetParticle(); updateReadout();
+});
+ui.qNeg.addEventListener('click', () => {
+  S.q = -1; qDirty = true;
+  ui.qNeg.setAttribute('aria-pressed', 'true');
+  ui.qPos.setAttribute('aria-pressed', 'false');
+  markDrift(isDirty()); resetParticle(); updateReadout();
+});
+
+onReset = () => { resetParticle(); updateReadout(); };
+
+/* === END SCENE === */
+
+/* ================= 主循环 ================= */
+const clock = new THREE.Clock();
+let firstFrame = true;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05) * speed;
+
+  if (!paused) {
+    const n = 8, h = dt / n;
+    for (let i = 0; i < n; i++) {
+      // a = (q/m)(E + v×B)，E 沿 +y，B 沿 +z
+      const ax = (S.q / MASS) * (S.vy * S.B);
+      const ay = (S.q / MASS) * (S.E - S.vx * S.B);
+      S.vx += ax * h;
+      S.vy += ay * h;
+      S.x += S.vx * h;
+      S.y += S.vy * h;
+    }
+    if (S.x > 5.2 || Math.abs(S.y) > 0.88) { resetParticle(); }
+
+    particle.position.set(S.x, S.y, 0);
+    pLight.position.copy(particle.position);
+    trail.push(particle.position);
+
+    vArrow.position.copy(particle.position);
+    vArrow.setDirection(new THREE.Vector3(S.vx, S.vy, 0).normalize());
+    vArrow.setLength(0.25 + Math.hypot(S.vx, S.vy) * 0.3, 0.13, 0.07);
+
+    eArrow.position.copy(particle.position);
+    eArrow.setDirection(new THREE.Vector3(0, S.q > 0 ? 1 : -1, 0));
+    bArrow.position.copy(particle.position);
+    bArrow.setDirection(new THREE.Vector3(S.vy * S.q, -S.vx * S.q, 0).normalize());
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  if (firstFrame) { firstFrame = false; document.title = 'T4_OK'; }
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+camera.position.set(2.4, -1.8, 7.6);
+controls.target.set(2.2, 0, 0);
+
+resetParticle();
+updateReadout();
+animate();
+</script>
+</body>
+</html>
