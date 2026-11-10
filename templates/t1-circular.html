@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T1 · 匀强磁场中的圆周运动</title>
+<style>
+  :root{
+    --bg:#080F12; --panel:rgba(12,26,32,.84); --line:rgba(126,214,220,.22);
+    --ink:#E4F1F3; --muted:#88A3AA; --brand:#4ADE80; --cyan:#7DD3FC;
+    --warn:#F2C14E; --bad:#F87171; --violet:#C4B5FD;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  canvas{display:block}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(ellipse at 50% 47%,transparent 44%,rgba(0,0,0,.5) 100%)}
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+  header{position:absolute;left:24px;top:20px;max-width:560px}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;color:var(--brand);opacity:.85;margin:0 0 6px}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.02em}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:6px;line-height:1.5}
+  .readout{position:absolute;left:24px;top:126px;display:grid;gap:7px;font-variant-numeric:tabular-nums}
+  .ro{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+  .ro b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;color:var(--ink);font-weight:500}
+  .ro span{min-width:96px}
+
+  .panel{position:absolute;right:22px;bottom:22px;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px 12px;backdrop-filter:blur(10px);width:260px}
+  .cap{font-size:11px;color:var(--muted);margin:0 0 6px;letter-spacing:.08em}
+  .row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .row label{font-size:12.5px;color:var(--muted);width:62px;flex:none;white-space:nowrap}
+  .row output{font-family:ui-monospace,monospace;font-size:12.5px;width:38px;text-align:right;color:var(--ink)}
+  input[type=range]{flex:1;accent-color:var(--brand);height:20px;background:transparent}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button,.act button{
+    flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+  .act{display:flex;gap:8px}
+  .act button:hover{border-color:var(--brand);color:var(--brand)}
+
+  .answer{position:absolute;left:24px;bottom:22px;pointer-events:auto;width:min(440px,calc(100vw - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    backdrop-filter:blur(10px);display:none}
+  .answer.on{display:block}
+  .answer h2{font-size:13px;margin:0 0 10px;color:var(--brand);letter-spacing:.06em}
+  .answer .f{font-family:ui-monospace,Menlo,monospace;color:var(--cyan)}
+  .drift{font-size:12px;color:var(--warn);border:1px solid rgba(242,193,78,.35);
+    background:rgba(242,193,78,.10);border-radius:8px;padding:6px 9px;margin:0 0 10px}
+  .drift[hidden]{display:none}
+
+  .problem{position:absolute;right:22px;top:20px;max-width:min(420px,calc(100vw - 44px));
+    pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;backdrop-filter:blur(10px);font-size:12.5px;color:var(--muted)}
+  .problem summary{cursor:pointer;color:var(--ink);font-size:12.5px;list-style:none}
+  .problem summary::-webkit-details-marker{display:none}
+  .problem summary::before{content:"▸ ";color:var(--brand)}
+  .problem[open] summary::before{content:"▾ "}
+  .problem p{margin:8px 0 0;line-height:1.7;color:var(--muted)}
+
+  .hint{position:absolute;left:24px;bottom:8px;font-size:11px;color:var(--muted);opacity:.55}
+  @media (max-width:760px){
+    header{left:16px;top:12px;max-width:none;right:16px} h1{font-size:16px} h1 small{font-size:11px}
+    .readout{left:16px;top:104px;gap:4px} .ro span{min-width:76px} .ro b{font-size:14px}
+    .panel{left:12px;right:12px;bottom:12px;width:auto}
+    .answer{left:12px;right:12px;bottom:190px;width:auto}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+  <header>
+    <p class="eyebrow">磁场 · 三维演示</p>
+    <h1>带电粒子在匀强磁场中的圆周运动
+      <small>速度垂直磁场射入 · 轨迹是圆，半径 r = mv/(qB)</small>
+    </h1>
+  </header>
+
+  <div class="readout">
+    <div class="ro"><span>轨道半径 r</span><b id="ro-r">—</b></div>
+    <div class="ro"><span>回旋周期 T</span><b id="ro-T">—</b></div>
+    <div class="ro"><span>已转过</span><b id="ro-deg">—</b></div>
+  </div>
+
+  <details class="problem">
+    <summary>题目原文</summary>
+    <p>把这道题的题干放在这里。演示默认条件：质量 m、电量 q 的粒子以速率 v 垂直射入磁感应强度为 B 的匀强磁场，磁场垂直纸面向外。</p>
+  </details>
+
+  <div class="answer" id="answer">
+    <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
+    <h2>要点</h2>
+    <div id="answer-body" style="font-size:13px;line-height:1.75">
+      洛伦兹力始终垂直速度、指向圆心，提供向心力：<br>
+      <span class="f">qvB = mv²/r → r = mv/(qB)</span><br>
+      <span class="f">T = 2πr/v = 2πm/(qB)</span>，与速率无关。<br>
+      负电荷受力反向，圆心换到另一侧，轨迹方向也相反。
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label for="v">速率 v</label>
+      <input id="v" type="range" min="0.3" max="2.0" step="0.05" value="1">
+      <output id="v-out">1.00</output>
+    </div>
+    <div class="row">
+      <label for="b">磁感应 B</label>
+      <input id="b" type="range" min="0.5" max="2.5" step="0.05" value="1">
+      <output id="b-out">1.00</output>
+    </div>
+    <div class="seg">
+      <button id="q-pos" aria-pressed="true">正电荷 +q</button>
+      <button id="q-neg" aria-pressed="false">负电荷 −q</button>
+    </div>
+    <div class="cap">播放速度</div>
+    <div class="seg" id="speed-row">
+      <button class="sp" id="btn-speed-0.25" data-s="0.25">¼×</button>
+      <button class="sp" id="btn-speed-0.5" data-s="0.5">½×</button>
+      <button class="sp" id="btn-speed-1" data-s="1" aria-pressed="true">1×</button>
+      <button class="sp" id="btn-speed-2" data-s="2">2×</button>
+    </div>
+    <div class="seg">
+      <button id="btn-answer" aria-pressed="false">看答案</button>
+    </div>
+    <div class="act">
+      <button id="pause">暂停</button>
+      <button id="reset">重播</button>
+    </div>
+  </div>
+
+  <div class="hint">拖动旋转视角 · 滚轮缩放 · 空格暂停 · R 重播</div>
+</div>
+
+<script id="expect" type="application/json">{"r": 1, "T": 6.2832}</script>
+<script src="../src/physics.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../lib/three.module.js",
+    "three/addons/controls/OrbitControls.js": "../lib/OrbitControls.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+/* ================= 舞台 ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080F12);
+scene.fog = new THREE.Fog(0x080F12, 16, 34);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(0, -1.6, 5.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, -0.6, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 2;
+controls.maxDistance = 18;
+
+scene.add(new THREE.AmbientLight(0xa8e6ee, 0.65));
+const key = new THREE.DirectionalLight(0xd9fbff, 1.0);
+key.position.set(4, 6, 8);
+scene.add(key);
+
+/* ================= 工具（与 shell 一致） ================= */
+function label3d(text, color = '#9FE6C4', size = 0.3) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 160;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = 'bold 56px "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 80, 82);
+  const tex = new THREE.CanvasTexture(c);
+  tex.anisotropy = 4;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  const w = Math.max(0.18, text.length * 0.16);
+  s.scale.set(size * w / 0.3, size, 1);
+  return s;
+}
+
+function makeArrow(color = 0xF2C14E, len = 0.8) {
+  return new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), len, color, 0.14, 0.07);
+}
+
+function makeTrail(maxPoints = 4000, color = 0x8CF5C4) {
+  const pos = new Float32Array(maxPoints * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setDrawRange(0, 0);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false }));
+  line.renderOrder = 3;
+  line.frustumCulled = false;
+  let n = 0;
+  return {
+    line,
+    push(p) {
+      if (n >= maxPoints) return;
+      pos[n * 3] = p.x; pos[n * 3 + 1] = p.y; pos[n * 3 + 2] = p.z;
+      n++;
+      geo.setDrawRange(0, n);
+      geo.attributes.position.needsUpdate = true;
+    },
+    clear() { n = 0; geo.setDrawRange(0, 0); },
+    get count() { return n; },
+  };
+}
+
+function markDrift(on) {
+  const el = document.getElementById('drift');
+  if (el) el.hidden = !on;
+}
+
+/* ================= 控制 ================= */
+let speed = 1;
+let paused = false;
+let onReset = () => {};
+
+const spBtns = [...document.querySelectorAll('.sp')];
+function setSpeed(v) {
+  speed = v;
+  spBtns.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.s === v)));
+}
+spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
+
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('reset').addEventListener('click', () => { markDrift(false); onReset(); });
+document.getElementById('btn-answer').addEventListener('click', ev => {
+  const on = !document.getElementById('answer').classList.contains('on');
+  document.getElementById('answer').classList.toggle('on', on);
+  ev.currentTarget.setAttribute('aria-pressed', String(on));
+});
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause').textContent = paused ? '继续' : '暂停';
+}
+
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if (e.key === 'r' || e.key === 'R') { markDrift(false); onReset(); }
+});
+
+/* === SCENE === */
+const MASS = 1;
+const S = { v: 1, B: 1, q: 1, t: 0 };
+
+const radiusOf = () => PHYS.t1.radius({ v: S.v, m: MASS, q: S.q, B: S.B });
+const periodOf = () => PHYS.t1.period({ m: MASS, q: S.q, B: S.B });
+
+// 粒子
+const particle = new THREE.Mesh(
+  new THREE.SphereGeometry(0.075, 28, 20),
+  new THREE.MeshStandardMaterial({ color: 0xA7F3D0, emissive: 0x34D399, emissiveIntensity: 2.0, roughness: .35 })
+);
+scene.add(particle);
+const pLight = new THREE.PointLight(0x34D399, 1.4, 4, 2);
+scene.add(pLight);
+
+const trail = makeTrail(4000);
+scene.add(trail.line);
+
+const vArrow = makeArrow(0xF2C14E, 0.7);
+const fArrow = makeArrow(0xF87171, 0.55);
+scene.add(vArrow, fArrow);
+
+const startLabel = label3d('A', '#F2C14E', 0.26);
+startLabel.position.set(-0.16, 0.2, 0);
+scene.add(startLabel);
+
+const centerDot = new THREE.Mesh(
+  new THREE.SphereGeometry(0.045, 12, 10),
+  new THREE.MeshBasicMaterial({ color: 0x7DD3FC })
+);
+scene.add(centerDot);
+
+const guide = new THREE.LineLoop(
+  new THREE.BufferGeometry(),
+  new THREE.LineDashedMaterial({ color: 0x2F6B57, dashSize: 0.08, gapSize: 0.1, transparent: true, opacity: .8 })
+);
+scene.add(guide);
+
+const radiusLine = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+  new THREE.LineDashedMaterial({ color: 0x7DD3FC, dashSize: 0.06, gapSize: 0.06, transparent: true, opacity: .7 })
+);
+scene.add(radiusLine);
+
+function centerOf() {
+  const r = radiusOf();
+  if (!r) return new THREE.Vector3(0, 0, 0);
+  return new THREE.Vector3(0, S.q > 0 ? -r : r, 0);
+}
+
+function posAt(t) {
+  const r = radiusOf();
+  if (!r) return new THREE.Vector3(S.v * t, 0, 0);      // B→0 或 v→0：直线
+  const w = Math.abs(PHYS.t1.omega({ m: MASS, q: S.q, B: S.B }));
+  const sgn = S.q > 0 ? -1 : 1;                          // B 沿 +z 时，正电荷顺时针
+  const phi0 = S.q > 0 ? Math.PI / 2 : -Math.PI / 2;
+  const phi = phi0 + sgn * w * t;
+  const c = centerOf();
+  return new THREE.Vector3(c.x + r * Math.cos(phi), c.y + r * Math.sin(phi), 0);
+}
+
+function velAt(t) {
+  const r = radiusOf();
+  if (!r) return new THREE.Vector3(S.v, 0, 0);
+  const w = Math.abs(PHYS.t1.omega({ m: MASS, q: S.q, B: S.B }));
+  const sgn = S.q > 0 ? -1 : 1;
+  const phi0 = S.q > 0 ? Math.PI / 2 : -Math.PI / 2;
+  const phi = phi0 + sgn * w * t;
+  return new THREE.Vector3(-Math.sin(phi), Math.cos(phi), 0).multiplyScalar(sgn * w * r);
+}
+
+function rebuild() {
+  const r = radiusOf(), T = periodOf();
+  document.getElementById('ro-r').textContent = r ? r.toFixed(2) : '—';
+  document.getElementById('ro-T').textContent = T ? T.toFixed(2) : '—';
+  document.getElementById('ro-deg').textContent = '0°';
+
+  const c = centerOf();
+  centerDot.position.copy(c);
+  radiusLine.visible = !!r;
+
+  // 轨迹预测圆
+  if (r) {
+    const pts = [];
+    for (let i = 0; i < 128; i++) {
+      const a = i / 128 * Math.PI * 2;
+      pts.push(new THREE.Vector3(c.x + r * Math.cos(a), c.y + r * Math.sin(a), 0));
+    }
+    guide.geometry.dispose();
+    guide.geometry = new THREE.BufferGeometry().setFromPoints(pts);
+    guide.computeLineDistances();
+  }
+  guide.visible = !!r;
+}
+
+function resetAll() {
+  S.t = 0;
+  trail.clear();
+  rebuild();
+}
+
+const ui = {
+  v: document.getElementById('v'), b: document.getElementById('b'),
+  vOut: document.getElementById('v-out'), bOut: document.getElementById('b-out'),
+  qPos: document.getElementById('q-pos'), qNeg: document.getElementById('q-neg'),
+};
+ui.v.addEventListener('input', () => {
+  S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2);
+  markDrift(true); resetAll();
+});
+ui.b.addEventListener('input', () => {
+  S.B = +ui.b.value; ui.bOut.textContent = S.B.toFixed(2);
+  markDrift(true); resetAll();
+});
+function setQ(q) {
+  S.q = q;
+  ui.qPos.setAttribute('aria-pressed', String(q > 0));
+  ui.qNeg.setAttribute('aria-pressed', String(q < 0));
+  markDrift(true); resetAll();
+}
+ui.qPos.addEventListener('click', () => setQ(1));
+ui.qNeg.addEventListener('click', () => setQ(-1));
+
+onReset = () => { resetAll(); };
+
+/* === END SCENE === */
+
+/* ================= 主循环 ================= */
+const clock = new THREE.Clock();
+let firstFrame = true;
+let lastLap = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05) * speed;
+
+  if (!paused) {
+    const r = radiusOf(), T = periodOf();
+    S.t += dt;
+
+    // 每转一圈清一次轨迹，避免叠成一团
+    const lap = T ? Math.floor(S.t / T) : 0;
+    if (lap !== lastLap) { lastLap = lap; trail.clear(); }
+
+    // 超出视野（直线情形）就重置
+    const p = posAt(S.t);
+    if (!r && Math.hypot(p.x, p.y) > 8) { S.t = 0; trail.clear(); }
+    trail.push(p);
+
+    const v = velAt(S.t);
+    vArrow.position.copy(p);
+    if (v.length() > 1e-6) vArrow.setDirection(v.clone().normalize());
+    vArrow.setLength(Math.min(1.0, 0.25 + v.length() * 0.35), 0.14, 0.07);
+
+    const c = centerOf();
+    const toC = c.clone().sub(p);
+    fArrow.position.copy(p);
+    if (toC.length() > 1e-6) fArrow.setDirection(toC.normalize());
+    fArrow.visible = !!r;
+
+    if (r) {
+      radiusLine.geometry.setFromPoints([c, p]);
+      radiusLine.computeLineDistances();
+    }
+
+    // 已转过角度
+    const deg = T ? ((S.t % T) / T) * 360 : 0;
+    document.getElementById('ro-deg').textContent = Math.round(deg) + '°';
+  }
+
+  controls.update();
+  renderer.render(scene, camera);
+
+  if (firstFrame) { firstFrame = false; document.title = 'T1_OK'; }
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+rebuild();
+animate();
+</script>
+</body>
+</html>
