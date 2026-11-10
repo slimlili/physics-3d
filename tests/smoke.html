@@ -1,0 +1,20 @@
+<!doctype html><meta charset="utf-8">
+<title>LOADING</title>
+<script type="importmap">
+{"imports":{
+  "three":"../lib/three.module.js",
+  "three/addons/controls/OrbitControls.js":"../lib/OrbitControls.js"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const r = new THREE.WebGLRenderer();
+r.setSize(64,64);
+const s = new THREE.Scene(), c = new THREE.PerspectiveCamera(50,1,.1,10);
+c.position.z = 2;
+s.add(new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({color:0x00ff88})));
+const ctl = new OrbitControls(c, r.domElement);
+r.render(s,c);
+document.title = 'RENDER_OK';
+</script>
