@@ -302,8 +302,23 @@ addEventListener('keydown', e => {
 });
 
 /* === SCENE === */
+// 题目数值：实例化时改这里（m 千克、q 库仑、v 米/秒、B 特斯拉）。
+// 画面几何用归一化单位，读数按真值换算——滑块是相对题目基准的倍数。
+const P = { m: 1, q: 1, v: 1, B: 1 };
 const MASS = 1;
 const S = { v: 1, B: 1, q: 1, t: 0 };
+
+const rBase = () => PHYS.t1.radius({ v: P.v, m: P.m, q: P.q, B: P.B });
+const tBase = () => PHYS.t1.period({ m: P.m, q: P.q, B: P.B });
+
+function fmt(x) {
+  if (!Number.isFinite(x) || x === 0) return '0';
+  const a = Math.abs(x);
+  if (a >= 0.01 && a < 1e5) return x.toFixed(2);
+  const m = x.toExponential(2);          // 例：1.60e-1
+  const [c, e] = m.split('e');
+  return c + '×10' + e.replace('-', '⁻').replace('+', '').split('').map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]).join('');
+}
 
 const radiusOf = () => PHYS.t1.radius({ v: S.v, m: MASS, q: S.q, B: S.B });
 const periodOf = () => PHYS.t1.period({ m: MASS, q: S.q, B: S.B });
@@ -375,8 +390,10 @@ function velAt(t) {
 
 function rebuild() {
   const r = radiusOf(), T = periodOf();
-  document.getElementById('ro-r').textContent = r ? r.toFixed(2) : '—';
-  document.getElementById('ro-T').textContent = T ? T.toFixed(2) : '—';
+  const rReal = rBase() * (S.v / S.B);
+  const tReal = tBase() / S.B;
+  document.getElementById('ro-r').textContent = r ? fmt(rReal) : '—';
+  document.getElementById('ro-T').textContent = T ? fmt(tReal) : '—';
   document.getElementById('ro-deg').textContent = '0°';
 
   const c = centerOf();
