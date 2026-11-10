@@ -42,4 +42,9 @@ if (P.fmt(5.027e-7) !== "5.03×10⁻⁷") fail("负指数格式: " + P.fmt(5.027
 if (P.fmt(1e-4) !== "1.00×10⁻⁴") fail("1e-4 格式");
 if (P.fmt(0.16) !== "0.16") fail("普通数值格式");
 if (P.fmt(-3.5e-12) !== "-3.50×10⁻¹²") fail("负数格式: " + P.fmt(-3.5e-12));
+// T5：沿半径射入圆形磁场
+if (!near(P.t5.deflectionDeg({ r: 1, R: 1 }), 90)) fail("r=R 应偏转 90°");
+if (!near(P.t5.deflectionDeg({ r: 1 / Math.sqrt(3), R: 1 }), 120)) fail("r=R/√3 应偏转 120°");
+const e1 = P.t5.exitPoint({ r: 1, R: 1 });
+if (!near(e1.x, 1) || !near(e1.y, -1)) fail("r=R 出射点应为 (R,-R)");
 print("PASS");

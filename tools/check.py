@@ -20,7 +20,7 @@ SUP = {'⁻': '-', '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵
 def parse_num(text: str):
     """把 '5.03×10⁻⁷' / '0.16' 解析成 float；无法解析返回 None。"""
     t = text.replace(' ', '')
-    m = re.fullmatch(r'([-+]?\d+(?:\.\d+)?)(?:×10([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+))?', t)
+    m = re.match(r'([-+]?\d+(?:\.\d+)?)(?:×10([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+))?', t)
     if not m:
         return None
     val = float(m.group(1))
