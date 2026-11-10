@@ -209,6 +209,13 @@ function markDrift(on) {
   if (el) el.hidden = !on;
 }
 
+let qDirty = false;
+function isDirty() {
+  const moved = [...document.querySelectorAll('input[type=range]')]
+    .some(el => Math.abs(+el.value - +el.defaultValue) > 1e-9);
+  return moved || qDirty;
+}
+
 /* ================= 控制 ================= */
 let speed = 1;
 let paused = false;
@@ -222,7 +229,7 @@ function setSpeed(v) {
 spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
 
 document.getElementById('pause').addEventListener('click', togglePause);
-document.getElementById('reset').addEventListener('click', () => { markDrift(false); onReset(); });
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
 document.getElementById('btn-answer').addEventListener('click', ev => {
   const on = !document.getElementById('answer').classList.contains('on');
   document.getElementById('answer').classList.toggle('on', on);
@@ -236,7 +243,7 @@ function togglePause() {
 
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
-  if (e.key === 'r' || e.key === 'R') { markDrift(false); onReset(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
 });
 
 /* === SCENE === */

@@ -228,6 +228,13 @@ function markDrift(on) {
   if (el) el.hidden = !on;
 }
 
+let qDirty = false;
+function isDirty() {
+  const moved = [...document.querySelectorAll('input[type=range]')]
+    .some(el => Math.abs(+el.value - +el.defaultValue) > 1e-9);
+  return moved || qDirty;
+}
+
 /* ================= 控制 ================= */
 let speed = 1;
 let paused = false;
@@ -241,7 +248,7 @@ function setSpeed(v) {
 spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
 
 document.getElementById('pause').addEventListener('click', togglePause);
-document.getElementById('reset').addEventListener('click', () => { markDrift(false); onReset(); });
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
 document.getElementById('btn-answer').addEventListener('click', ev => {
   const on = !document.getElementById('answer').classList.contains('on');
   document.getElementById('answer').classList.toggle('on', on);
@@ -255,7 +262,7 @@ function togglePause() {
 
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
-  if (e.key === 'r' || e.key === 'R') { markDrift(false); onReset(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
 });
 
 /* === SCENE === */
@@ -268,14 +275,7 @@ const S = { v: 1, B: 1, q: 1, t: 0 };
 const rBase = () => PHYS.t1.radius({ v: P.v, m: P.m, q: P.q, B: P.B });
 const tBase = () => PHYS.t1.period({ m: P.m, q: P.q, B: P.B });
 
-function fmt(x) {
-  if (!Number.isFinite(x) || x === 0) return '0';
-  const a = Math.abs(x);
-  if (a >= 0.01 && a < 1e5) return x.toFixed(2);
-  const m = x.toExponential(2);          // 例：1.60e-1
-  const [c, e] = m.split('e');
-  return c + '×10' + e.replace('-', '⁻').replace('+', '').split('').map(d => '⁰¹²³⁴⁵⁶⁷⁸⁹'[+d]).join('');
-}
+const fmt = PHYS.fmt;
 
 const radiusOf = () => PHYS.t1.radius({ v: S.v, m: MASS, q: S.q, B: S.B });
 const periodOf = () => PHYS.t1.period({ m: MASS, q: S.q, B: S.B });
@@ -384,17 +384,18 @@ const ui = {
 };
 ui.v.addEventListener('input', () => {
   S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2);
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 });
 ui.b.addEventListener('input', () => {
   S.B = +ui.b.value; ui.bOut.textContent = S.B.toFixed(2);
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 });
 function setQ(q) {
   S.q = q;
+  qDirty = true;
   ui.qPos.setAttribute('aria-pressed', String(q > 0));
   ui.qNeg.setAttribute('aria-pressed', String(q < 0));
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 }
 ui.qPos.addEventListener('click', () => setQ(1));
 ui.qNeg.addEventListener('click', () => setQ(-1));

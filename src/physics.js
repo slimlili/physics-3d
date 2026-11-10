@@ -16,11 +16,13 @@
 
   const t2 = {
     // 直线边界：theta 为速度与边界线的夹角（弧度）
-    centralAngle: theta => safe(Math.min(TAU, Math.max(0, TAU - 2 * theta))),
+    // 正电荷（q>0）圆心落在磁场内，转 2π−2θ；负电荷受力朝外，穿出前只转 2θ
+    centralAngle: (theta, q = 1) =>
+      safe(Math.min(TAU, Math.max(0, q > 0 ? TAU - 2 * theta : 2 * theta))),
     chord: (r, theta) => safe(2 * r * Math.sin(Math.min(theta, Math.PI - theta) || 0)),
     time: ({ m, q, B, theta }) => {
       const w = Math.abs(t1.omega({ m, q, B }));
-      return safe(w > 0 ? t2.centralAngle(theta) / w : 0);
+      return safe(w > 0 ? t2.centralAngle(theta, q) / w : 0);
     },
   };
 
@@ -37,5 +39,17 @@
     willPass: (v, E, B) => Math.abs(v - t4.selectorSpeed(E, B)) < 1e-9,
   };
 
-  g.PHYS = { t1, t2, t3, t4, safe };
+  // 科学计数法：5.027e-7 → "5.03×10⁻⁷"；0.16 → "0.16"
+  const SUP = { '-': '⁻', '+': '', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  function fmt(x) {
+    if (!Number.isFinite(x)) return '—';
+    if (x === 0) return '0';
+    const a = Math.abs(x);
+    if (a >= 0.01 && a < 1e5) return x.toFixed(2);
+    const [c, e] = x.toExponential(2).split('e');
+    const exp = e.split('').map(ch => SUP[ch] ?? '').join('');
+    return c + '×10' + exp;
+  }
+
+  g.PHYS = { t1, t2, t3, t4, safe, fmt };
 })(globalThis);

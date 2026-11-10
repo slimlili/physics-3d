@@ -89,17 +89,16 @@
 
   <details class="problem">
     <summary>题目原文</summary>
-    <p>把这道题的题干放在这里。演示默认条件：质量 m、电量 q 的粒子以速率 v 垂直射入磁感应强度为 B 的匀强磁场，磁场垂直纸面向外。</p>
+    <p>把这道题的题干放在这里。演示默认条件：粒子速度与磁场方向成 θ 角，磁场沿轴向均匀分布。</p>
   </details>
 
   <div class="answer" id="answer">
     <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
     <h2>要点</h2>
     <div id="answer-body" style="font-size:13px;line-height:1.75">
-      洛伦兹力始终垂直速度、指向圆心，提供向心力：<br>
-      <span class="f">qvB = mv²/r → r = mv/(qB)</span><br>
-      <span class="f">T = 2πr/v = 2πm/(qB)</span>，与速率无关。<br>
-      负电荷受力反向，圆心换到另一侧，轨迹方向也相反。
+      把速度沿磁场方向分解：<span class="f">v∥ = v·cosθ</span>、<span class="f">v⊥ = v·sinθ</span>。<br>
+      垂直分量做圆周运动：<span class="f">r = mv·sinθ/(qB)</span>，周期 <span class="f">T = 2πm/(qB)</span>。<br>
+      平行分量不受力，一圈前进一个螺距：<span class="f">p = v·cosθ · T</span>。
     </div>
   </div>
 
@@ -228,6 +227,13 @@ function markDrift(on) {
   if (el) el.hidden = !on;
 }
 
+let qDirty = false;
+function isDirty() {
+  const moved = [...document.querySelectorAll('input[type=range]')]
+    .some(el => Math.abs(+el.value - +el.defaultValue) > 1e-9);
+  return moved || qDirty;
+}
+
 /* ================= 控制 ================= */
 let speed = 1;
 let paused = false;
@@ -241,7 +247,7 @@ function setSpeed(v) {
 spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
 
 document.getElementById('pause').addEventListener('click', togglePause);
-document.getElementById('reset').addEventListener('click', () => { markDrift(false); onReset(); });
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
 document.getElementById('btn-answer').addEventListener('click', ev => {
   const on = !document.getElementById('answer').classList.contains('on');
   document.getElementById('answer').classList.toggle('on', on);
@@ -255,7 +261,7 @@ function togglePause() {
 
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
-  if (e.key === 'r' || e.key === 'R') { markDrift(false); onReset(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
 });
 
 /* === SCENE === */
@@ -347,13 +353,14 @@ const ui = {
   vOut: document.getElementById('v-out'), bOut: document.getElementById('b-out'),
   qPos: document.getElementById('q-pos'), qNeg: document.getElementById('q-neg'),
 };
-ui.v.addEventListener('input', () => { S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2); markDrift(true); resetAll(); });
-ui.b.addEventListener('input', () => { S.B = +ui.b.value; ui.bOut.textContent = S.B.toFixed(2); markDrift(true); resetAll(); });
+ui.v.addEventListener('input', () => { S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2); markDrift(isDirty()); resetAll(); });
+ui.b.addEventListener('input', () => { S.B = +ui.b.value; ui.bOut.textContent = S.B.toFixed(2); markDrift(isDirty()); resetAll(); });
 function setQ(q) {
   S.q = q;
+  qDirty = true;
   ui.qPos.setAttribute('aria-pressed', String(q > 0));
   ui.qNeg.setAttribute('aria-pressed', String(q < 0));
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 }
 ui.qPos.addEventListener('click', () => setQ(1));
 ui.qNeg.addEventListener('click', () => setQ(-1));
@@ -369,7 +376,7 @@ panel.insertBefore(row, panel.firstChild);
 document.getElementById('th').addEventListener('input', ev => {
   S.theta = +ev.target.value * Math.PI / 180;
   document.getElementById('th-out').textContent = ev.target.value + '°';
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 });
 
 onReset = () => { resetAll(); };
@@ -406,7 +413,7 @@ function animate() {
     vParArrow.setLength(Math.max(0.05, Math.abs(vParOf()) * 0.5), 0.12, 0.06);
 
     vPerpArrow.position.copy(p);
-    vPerpArrow.setDirection(new THREE.Vector3(-Math.sin(phi), Math.cos(phi), 0));
+    vPerpArrow.setDirection(new THREE.Vector3(-sgn * Math.sin(phi), sgn * Math.cos(phi), 0));
     vPerpArrow.setLength(Math.max(0.05, radiusOf() * omegaOf() * 0.5), 0.12, 0.06);
   }
 

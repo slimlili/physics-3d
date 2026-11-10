@@ -33,4 +33,13 @@ if (P.t3.radius({ v: 1, theta: 0, m: 1, q: 1, B: 1 }) !== 0) fail("θ=0 半径�
 if (!near(P.t4.selectorSpeed(2, 1), 2)) fail("v=E/B");
 if (!P.t4.willPass(2, 2, 1)) fail("v=E/B 应直线通过");
 if (P.t4.willPass(1, 2, 1)) fail("v≠E/B 应偏转");
+// 直线边界：负电荷只转 2θ
+if (!near(P.t2.centralAngle(Math.PI / 6, -1), Math.PI / 3)) fail("负电荷圆心角应为 2θ");
+if (!near(P.t2.time({ m: 1, q: -1, B: 1, theta: Math.PI / 6 }), Math.PI / 3)) fail("负电荷在磁场中时间");
+
+// 数值格式：指数符号不能丢
+if (P.fmt(5.027e-7) !== "5.03×10⁻⁷") fail("负指数格式: " + P.fmt(5.027e-7));
+if (P.fmt(1e-4) !== "1.00×10⁻⁴") fail("1e-4 格式");
+if (P.fmt(0.16) !== "0.16") fail("普通数值格式");
+if (P.fmt(-3.5e-12) !== "-3.50×10⁻¹²") fail("负数格式: " + P.fmt(-3.5e-12));
 print("PASS");

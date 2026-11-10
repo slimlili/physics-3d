@@ -89,17 +89,16 @@
 
   <details class="problem">
     <summary>题目原文</summary>
-    <p>把这道题的题干放在这里。演示默认条件：质量 m、电量 q 的粒子以速率 v 垂直射入磁感应强度为 B 的匀强磁场，磁场垂直纸面向外。</p>
+    <p>把这道题的题干放在这里。演示默认条件：粒子以与直线边界成 θ 角的速度射入磁场，磁场只存在于边界一侧。</p>
   </details>
 
   <div class="answer" id="answer">
     <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
     <h2>要点</h2>
     <div id="answer-body" style="font-size:13px;line-height:1.75">
-      洛伦兹力始终垂直速度、指向圆心，提供向心力：<br>
-      <span class="f">qvB = mv²/r → r = mv/(qB)</span><br>
-      <span class="f">T = 2πr/v = 2πm/(qB)</span>，与速率无关。<br>
-      负电荷受力反向，圆心换到另一侧，轨迹方向也相反。
+      圆心角：正电荷 <span class="f">Δ = 2π − 2θ</span>；负电荷受力朝磁场外，只转 <span class="f">2θ</span> 就穿出。<br>
+      弦长 <span class="f">L = 2r·sinθ</span>，半径 <span class="f">r = mv/(qB)</span>。<br>
+      在磁场中时间 <span class="f">t = Δ/ω = Δm/(qB)</span>。
     </div>
   </div>
 
@@ -228,6 +227,13 @@ function markDrift(on) {
   if (el) el.hidden = !on;
 }
 
+let qDirty = false;
+function isDirty() {
+  const moved = [...document.querySelectorAll('input[type=range]')]
+    .some(el => Math.abs(+el.value - +el.defaultValue) > 1e-9);
+  return moved || qDirty;
+}
+
 /* ================= 控制 ================= */
 let speed = 1;
 let paused = false;
@@ -241,7 +247,7 @@ function setSpeed(v) {
 spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
 
 document.getElementById('pause').addEventListener('click', togglePause);
-document.getElementById('reset').addEventListener('click', () => { markDrift(false); onReset(); });
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
 document.getElementById('btn-answer').addEventListener('click', ev => {
   const on = !document.getElementById('answer').classList.contains('on');
   document.getElementById('answer').classList.toggle('on', on);
@@ -255,7 +261,7 @@ function togglePause() {
 
 addEventListener('keydown', e => {
   if (e.code === 'Space') { e.preventDefault(); togglePause(); }
-  if (e.key === 'r' || e.key === 'R') { markDrift(false); onReset(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
 });
 
 /* === SCENE === */
@@ -264,7 +270,7 @@ const S = { v: 1, B: 1, q: 1, theta: Math.PI / 6, t: 0 };
 
 const radiusOf = () => PHYS.t1.radius({ v: S.v, m: MASS, q: S.q, B: S.B });
 const omegaOf = () => Math.abs(PHYS.t1.omega({ m: MASS, q: S.q, B: S.B }));
-const angleOf = () => PHYS.t2.centralAngle(S.theta);
+const angleOf = () => PHYS.t2.centralAngle(S.theta, S.q);
 const totalTime = () => PHYS.t2.time({ m: MASS, q: S.q, B: S.B, theta: S.theta });
 
 const v0dir = () => new THREE.Vector3(Math.sin(S.theta), Math.cos(S.theta), 0);
@@ -400,13 +406,14 @@ const ui = {
   vOut: document.getElementById('v-out'), bOut: document.getElementById('b-out'),
   qPos: document.getElementById('q-pos'), qNeg: document.getElementById('q-neg'),
 };
-ui.v.addEventListener('input', () => { S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2); markDrift(true); resetAll(); });
-ui.b.addEventListener('input', () => { S.B = +ui.b.value; ui.bOut.textContent = S.B.toFixed(2); markDrift(true); resetAll(); });
+ui.v.addEventListener('input', () => { S.v = +ui.v.value; ui.vOut.textContent = S.v.toFixed(2); markDrift(isDirty()); resetAll(); });
+ui.b.addEventListener('input', () => { S.B = +ui.b.value; ui.bOut.textContent = S.B.toFixed(2); markDrift(isDirty()); resetAll(); });
 function setQ(q) {
   S.q = q;
+  qDirty = true;
   ui.qPos.setAttribute('aria-pressed', String(q > 0));
   ui.qNeg.setAttribute('aria-pressed', String(q < 0));
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 }
 ui.qPos.addEventListener('click', () => setQ(1));
 ui.qNeg.addEventListener('click', () => setQ(-1));
@@ -422,7 +429,7 @@ panel.insertBefore(thetaRow, panel.firstChild);
 document.getElementById('th').addEventListener('input', ev => {
   S.theta = +ev.target.value * Math.PI / 180;
   document.getElementById('th-out').textContent = ev.target.value + '°';
-  markDrift(true); resetAll();
+  markDrift(isDirty()); resetAll();
 });
 
 onReset = () => { resetAll(); };
