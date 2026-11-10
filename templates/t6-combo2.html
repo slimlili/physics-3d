@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T5 · 组合场 · 装置化</title>
+<style>
+  :root{
+    --bg:#080F12; --panel:rgba(12,26,32,.84); --line:rgba(126,214,220,.22);
+    --ink:#E4F1F3; --muted:#88A3AA; --brand:#4ADE80; --cyan:#7DD3FC;
+    --warn:#F2C14E; --bad:#F87171; --violet:#C4B5FD;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  canvas{display:block}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(ellipse at 50% 47%,transparent 44%,rgba(0,0,0,.5) 100%)}
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+  header{position:absolute;left:24px;top:20px;max-width:560px}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;color:var(--brand);opacity:.85;margin:0 0 6px}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.02em}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:6px;line-height:1.5}
+  .readout{position:absolute;left:24px;top:126px;display:grid;gap:7px;font-variant-numeric:tabular-nums}
+  .ro{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+  .ro b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;color:var(--ink);font-weight:500}
+  .ro span{min-width:104px}
+
+  .panel{position:absolute;right:22px;bottom:22px;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px 12px;backdrop-filter:blur(10px);width:256px}
+  .cap{font-size:11px;color:var(--muted);margin:0 0 6px;letter-spacing:.08em}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button,.act button{
+    flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+  .act{display:flex;gap:8px}
+  .act button:hover{border-color:var(--brand);color:var(--brand)}
+
+  .answer{position:absolute;left:24px;bottom:22px;pointer-events:auto;width:min(460px,calc(100vw - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    backdrop-filter:blur(10px);display:none}
+  .answer.on{display:block}
+  .answer h2{font-size:13px;margin:0 0 10px;color:var(--brand);letter-spacing:.06em}
+  .answer .f{font-family:ui-monospace,Menlo,monospace;color:var(--cyan)}
+  .drift{font-size:12px;color:var(--warn);border:1px solid rgba(242,193,78,.35);
+    background:rgba(242,193,78,.10);border-radius:8px;padding:6px 9px;margin:0 0 10px}
+  .drift[hidden]{display:none}
+
+  .problem{position:absolute;right:22px;top:20px;max-width:min(420px,calc(100vw - 44px));
+    pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;backdrop-filter:blur(10px);font-size:12.5px;color:var(--muted)}
+  .problem summary{cursor:pointer;color:var(--ink);font-size:12.5px;list-style:none}
+  .problem summary::-webkit-details-marker{display:none}
+  .problem summary::before{content:"▸ ";color:var(--brand)}
+  .problem[open] summary::before{content:"▾ "}
+  .problem p{margin:8px 0 0;line-height:1.7;color:var(--muted)}
+
+  .hint{position:absolute;left:24px;bottom:8px;font-size:11px;color:var(--muted);opacity:.55}
+  @media (max-width:760px){
+    header{left:16px;top:12px;max-width:none;right:16px} h1{font-size:16px} h1 small{font-size:11px}
+    .readout{left:16px;top:104px;gap:4px} .ro span{min-width:82px} .ro b{font-size:14px}
+    .panel{left:12px;right:12px;bottom:12px;width:auto}
+    .answer{left:12px;right:12px;bottom:180px;width:auto}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+  <header>
+    <p class="eyebrow">磁场 · 组合场演示</p>
+    <h1>电子束：加速 → 小孔 → 圆形磁场 → 荧光屏
+      <small>M、N 板间加电压 U₀ · 圆形磁场与 N 板相切于小孔 P</small>
+    </h1>
+  </header>
+
+  <div class="readout">
+    <div class="ro"><span>轨迹半径 r/R</span><b id="ro-r">—</b></div>
+    <div class="ro"><span>转向角</span><b id="ro-ang">—</b></div>
+    <div class="ro"><span>最远落点 x/R</span><b id="ro-x">—</b></div>
+  </div>
+
+  <details class="problem">
+    <summary>题目原文</summary>
+    <p>平行铝板 M、金属板 N 中心有小孔 P；P 右侧有与 N 板相切于 P、半径 R 的圆形匀强磁场（垂直纸面向外），上方为水平荧光屏。紫外线照射 M 发射电子，M、N 间电压为 U₀ 时恰好无电子能从小孔飞出。保持电压大小、反向电场后，从 P 垂直 N 板射入、动能最大的电子，经磁场偏转后刚好垂直打在荧光屏上。求电子最大初速度 v₀、磁感应强度 B，以及电子打到荧光屏上距 N 板的最远距离。</p>
+  </details>
+
+  <div class="answer" id="answer">
+    <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
+    <h2>要点</h2>
+    <div id="answer-body" style="font-size:13px;line-height:1.75">
+      恰好无电子出射：最大初动能 <span class="f">½mv₀² = eU₀</span> → <span class="f">v₀ = √(2eU₀/m)</span>。<br>
+      反向加速后出孔速度 <span class="f">v₁ = √2·v₀</span>；垂直入射时转 90°、<span class="f">r = R</span>，<br>
+      <span class="f">ev₁B = mv₁²/R → B = (2/R)√(mU₀/e)</span>。<br>
+      半径 <span class="f">R</span> 的圆磁场会把从 P 进入的电子**准直成平行**（都竖直向上），<br>
+      入射角 45° 的那束落点最远：<span class="f">x = R + R·cos45° = (2+√2)R/2</span>。
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="seg">
+      <button id="rev" aria-pressed="true">电场已反向</button>
+      <button id="fan" aria-pressed="false">准直束</button>
+    </div>
+    <div class="seg">
+      <button id="btn-answer" aria-pressed="false">看答案</button>
+    </div>
+    <div class="cap">播放速度</div>
+    <div class="seg" id="speed-row">
+      <button class="sp" id="btn-speed-0.25" data-s="0.25">¼×</button>
+      <button class="sp" id="btn-speed-0.5" data-s="0.5">½×</button>
+      <button class="sp" id="btn-speed-1" data-s="1" aria-pressed="true">1×</button>
+      <button class="sp" id="btn-speed-2" data-s="2">2×</button>
+    </div>
+    <div class="act">
+      <button id="pause">暂停</button>
+      <button id="reset">重播</button>
+    </div>
+  </div>
+
+  <div class="hint">拖动旋转视角 · 滚轮缩放 · 空格暂停 · R 重播</div>
+</div>
+
+<script id="expect" type="application/json">{"r": 1, "x": 1.71}</script>
+<script src="../src/physics.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../lib/three.module.js",
+    "three/addons/controls/OrbitControls.js": "../lib/OrbitControls.js",
+    "three/addons/geometries/RoundedBoxGeometry.js": "../lib/RoundedBoxGeometry.js",
+    "three/addons/environments/RoomEnvironment.js": "../lib/RoomEnvironment.js",
+    "@post/postprocessing/EffectComposer.js": "../lib/post/postprocessing/EffectComposer.js",
+    "@post/postprocessing/Pass.js": "../lib/post/postprocessing/Pass.js",
+    "@post/postprocessing/ShaderPass.js": "../lib/post/postprocessing/ShaderPass.js",
+    "@post/postprocessing/MaskPass.js": "../lib/post/postprocessing/MaskPass.js",
+    "@post/postprocessing/RenderPass.js": "../lib/post/postprocessing/RenderPass.js",
+    "@post/postprocessing/UnrealBloomPass.js": "../lib/post/postprocessing/UnrealBloomPass.js",
+    "@post/postprocessing/OutputPass.js": "../lib/post/postprocessing/OutputPass.js",
+    "@post/shaders/CopyShader.js": "../lib/post/shaders/CopyShader.js",
+    "@post/shaders/LuminosityHighPassShader.js": "../lib/post/shaders/LuminosityHighPassShader.js",
+    "@post/shaders/OutputShader.js": "../lib/post/shaders/OutputShader.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from '@post/postprocessing/EffectComposer.js';
+import { RenderPass } from '@post/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '@post/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '@post/postprocessing/OutputPass.js';
+
+/* ================= 舞台 ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080F12);
+scene.fog = new THREE.Fog(0x080F12, 18, 40);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(2.0, 1.8, 9.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+{
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#0a1620'); g.addColorStop(0.5, '#070e14'); g.addColorStop(1, '#04080b');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+}
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 0.9));
+composer.addPass(new OutputPass());
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.8, 0.85, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 2;
+controls.maxDistance = 20;
+
+scene.add(new THREE.HemisphereLight(0xbfe9ff, 0x111a1e, 0.7));
+const key = new THREE.DirectionalLight(0xd9fbff, 1.6);
+key.position.set(5, 8, 7);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x6fb7c9, 0.6);
+fill.position.set(-5, 1, 5);
+scene.add(fill);
+
+/* ================= 工具 ================= */
+function label3d(text, color = '#9FE6C4', size = 0.3) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 160;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = 'bold 56px "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 80, 82);
+  const tex = new THREE.CanvasTexture(c);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+  s.scale.set(size * Math.max(0.6, text.length * 0.55), size, 1);
+  return s;
+}
+function makeArrow(color = 0xF2C14E, len = 0.7) {
+  return new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), len, color, 0.12, 0.06);
+}
+function makeTrail(maxPoints = 3000, color = 0x9CF7D0) {
+  const pos = new Float32Array(maxPoints * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setDrawRange(0, 0);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, depthTest: false }));
+  line.renderOrder = 3; line.frustumCulled = false;
+  let n = 0;
+  return {
+    line,
+    push(p) { if (n >= maxPoints) return; pos[n*3]=p.x; pos[n*3+1]=p.y; pos[n*3+2]=p.z; n++; geo.setDrawRange(0,n); geo.attributes.position.needsUpdate = true; },
+    clear() { n = 0; geo.setDrawRange(0, 0); },
+  };
+}
+function markDrift(on) { const el = document.getElementById('drift'); if (el) el.hidden = !on; }
+let dirty = false;
+function isDirty() { return dirty; }
+
+/* ================= 控制 ================= */
+let speed = 1, paused = false, onReset = () => {};
+const spBtns = [...document.querySelectorAll('.sp')];
+function setSpeed(v) { speed = v; spBtns.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.s === v))); }
+spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('reset').addEventListener('click', () => { onReset(); markDrift(isDirty()); });
+document.getElementById('btn-answer').addEventListener('click', ev => {
+  const on = !document.getElementById('answer').classList.contains('on');
+  document.getElementById('answer').classList.toggle('on', on);
+  ev.currentTarget.setAttribute('aria-pressed', String(on));
+});
+function togglePause() { paused = !paused; document.getElementById('pause').textContent = paused ? '继续' : '暂停'; }
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); markDrift(isDirty()); }
+});
+
+/* === SCENE === */
+const R = 1, GAP = 0.8;
+const P0 = new THREE.Vector3(0, 0, 0);
+const O2 = new THREE.Vector3(R, 0, 0);
+const SCREEN_Y = 2.1;
+const V0 = 1.6;                    // 平行（沿板）速度
+const A_ACC = V0 * V0 / (2 * GAP); // 使垂直速度在到达 P 时刚好等于 V0
+const T_ACC = 2 * GAP / V0;
+const V1 = Math.hypot(V0, V0);     // 过孔速度
+const OMEGA = V1 / R;              // 回旋角速度
+const THETA_ENTRY = -Math.PI / 4;  // 与法线夹角（向下 45°）
+const ARC = 3 * Math.PI / 4;       // 转 135°
+const T_ARC = ARC / OMEGA;
+const EXIT = new THREE.Vector3(R - R * Math.sin(THETA_ENTRY), R * Math.cos(THETA_ENTRY), 0);
+const T_SCREEN = (SCREEN_Y - EXIT.y) / V1;
+const TOTAL = T_ACC + T_ARC + T_SCREEN;
+
+const metal = new THREE.MeshStandardMaterial({ color: 0x2C3E47, metalness: 0.85, roughness: 0.3, envMapIntensity: 1.0 });
+const glowMat = new THREE.MeshBasicMaterial({ color: 0x4BE3C2 });
+
+// 基座
+const base = new THREE.Mesh(new RoundedBoxGeometry(7.2, 0.45, 3.0, 3, 0.07), metal);
+base.position.set(0.5, -2.85, 0);
+scene.add(base);
+for (const z of [-1.4, 1.4]) {
+  const strip = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.03, 0.05), glowMat);
+  strip.position.set(0.5, -2.6, z);
+  scene.add(strip);
+}
+
+// M、N 极板（N 板中间留孔）
+const plateH = 4.6;
+const mPlate = new THREE.Mesh(new RoundedBoxGeometry(0.12, plateH, 0.5, 3, 0.03), metal);
+mPlate.position.set(-GAP, 0.6, 0);
+scene.add(mPlate);
+const segH = plateH / 2 - 0.12;
+const nTop = new THREE.Mesh(new RoundedBoxGeometry(0.12, segH, 0.5, 3, 0.03), metal);
+nTop.position.set(0, 0.12 + segH / 2, 0);
+const nBot = nTop.clone();
+nBot.position.y = -0.12 - segH / 2;
+scene.add(nTop, nBot);
+
+const pLabel = label3d('P', '#F2C14E', 0.26); pLabel.position.set(-0.22, 0.16, 0); scene.add(pLabel);
+const mLabel = label3d('M', '#9FE6C4', 0.3); mLabel.position.set(-GAP - 0.28, 1.9, 0); scene.add(mLabel);
+const nLabel = label3d('N', '#9FE6C4', 0.3); nLabel.position.set(0.28, 1.9, 0); scene.add(nLabel);
+
+// 紫外线照射 M
+const uvGroup = new THREE.Group();
+for (let y = -1.6; y <= 2.4; y += 0.8) {
+  const a = new THREE.ArrowHelper(new THREE.Vector3(-0.6, -0.8, 0).normalize(), new THREE.Vector3(-GAP + 0.62, y + 0.6, 0), 0.62, 0xE879B8, 0.1, 0.05);
+  a.line.material.transparent = a.cone.material.transparent = true;
+  a.line.material.opacity = 0.35; a.cone.material.opacity = 0.5;
+  uvGroup.add(a);
+}
+scene.add(uvGroup);
+
+// 电场（M、N 之间）
+const eGroup = new THREE.Group();
+for (let y = -1.4; y <= 1.8; y += 0.55) {
+  const a = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(-GAP + 0.12, y, 0), GAP - 0.24, 0xF2C14E, 0.09, 0.045);
+  a.line.material.transparent = a.cone.material.transparent = true;
+  a.line.material.opacity = 0.18; a.cone.material.opacity = 0.3;
+  eGroup.add(a);
+}
+scene.add(eGroup);
+
+// 圆形磁场 + 玻璃腔
+const chamber = new THREE.Mesh(
+  new THREE.CylinderGeometry(1.06, 1.06, 0.9, 64, 1, true),
+  new THREE.MeshPhysicalMaterial({ color: 0x9FD6E6, metalness: 0, roughness: 0.05, transmission: 0.95,
+    thickness: 0.5, ior: 1.45, transparent: true, envMapIntensity: 0.7, side: THREE.DoubleSide })
+);
+chamber.rotation.x = Math.PI / 2;
+chamber.position.copy(O2);
+scene.add(chamber);
+for (const z of [-0.45, 0.45]) {
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.06, 0.03, 10, 64), new THREE.MeshStandardMaterial({ color: 0x7FD8E8, metalness: 0.9, roughness: 0.2 }));
+  ring.position.set(O2.x, O2.y, z);
+  scene.add(ring);
+}
+const fieldGroup = new THREE.Group();
+for (let x = -0.7; x <= 0.71; x += 0.35) {
+  for (let y = -0.7; y <= 0.71; y += 0.35) {
+    if (x * x + y * y > 0.8) continue;
+    const a = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(O2.x + x, O2.y + y, -0.28), 0.56, 0x5FB3C4, 0.09, 0.05);
+    a.line.material.transparent = a.cone.material.transparent = true;
+    a.line.material.opacity = 0.45; a.cone.material.opacity = 0.7;
+    fieldGroup.add(a);
+  }
+}
+scene.add(fieldGroup);
+
+// 荧光屏
+const screen = new THREE.Mesh(new RoundedBoxGeometry(2.9, 0.09, 0.5, 3, 0.03), metal);
+screen.position.set(1.75, SCREEN_Y, 0);
+scene.add(screen);
+const screenFace = new THREE.Mesh(new THREE.PlaneGeometry(2.8, 0.36), new THREE.MeshBasicMaterial({ color: 0x1E4A52 }));
+screenFace.rotation.x = -Math.PI / 2;
+screenFace.position.set(1.75, SCREEN_Y - 0.055, 0);
+scene.add(screenFace);
+const screenLabel = label3d('荧光屏', '#7DD3FC', 0.26); screenLabel.position.set(2.9, SCREEN_Y + 0.25, 0); scene.add(screenLabel);
+
+// 粒子与轨迹
+const electron = new THREE.Mesh(
+  new THREE.SphereGeometry(0.07, 28, 20),
+  new THREE.MeshStandardMaterial({ color: 0xBFF7FF, emissive: 0x4EE6FF, emissiveIntensity: 2.2, roughness: 0.3 })
+);
+scene.add(electron);
+const eLight = new THREE.PointLight(0x4EE6FF, 1.2, 3.5, 2);
+scene.add(eLight);
+const trail = makeTrail(3000, 0x8CF5FF);
+scene.add(trail.line);
+const vArrow = makeArrow(0xF2C14E, 0.55);
+const fArrow = makeArrow(0xF87171, 0.45);
+scene.add(vArrow, fArrow);
+
+// 准直束（静态虚线）
+const fanGroup = new THREE.Group();
+fanGroup.visible = false;
+scene.add(fanGroup);
+
+function arcPoints(theta, n = 48) {
+  const C = new THREE.Vector3(-R * Math.sin(theta), R * Math.cos(theta), 0);
+  const p1 = new THREE.Vector3(0, 0, 0);
+  const p2 = new THREE.Vector3(R - R * Math.sin(theta), R * Math.cos(theta), 0);
+  const a1 = Math.atan2(p1.y - C.y, p1.x - C.x);
+  let a2 = Math.atan2(p2.y - C.y, p2.x - C.x);
+  while (a2 < a1) a2 += Math.PI * 2;
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const a = a1 + (a2 - a1) * i / n;
+    pts.push(new THREE.Vector3(C.x + R * Math.cos(a), C.y + R * Math.sin(a), 0));
+  }
+  return { pts, exit: p2 };
+}
+
+function buildFan() {
+  while (fanGroup.children.length) { const c = fanGroup.children.pop(); c.geometry?.dispose?.(); c.material?.dispose?.(); }
+  for (const deg of [0, -22.5, -45]) {
+    const { pts, exit } = arcPoints(deg * Math.PI / 180);
+    const linePts = [...pts, new THREE.Vector3(exit.x, SCREEN_Y, 0)];
+    const ln = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(linePts),
+      new THREE.LineDashedMaterial({ color: deg === -45 ? 0xF2C14E : 0x4C8FA0, dashSize: 0.06, gapSize: 0.07, transparent: true, opacity: 0.75 })
+    );
+    ln.computeLineDistances();
+    fanGroup.add(ln);
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 10), new THREE.MeshBasicMaterial({ color: deg === -45 ? 0xF2C14E : 0x4C8FA0 }));
+    dot.position.set(exit.x, SCREEN_Y, 0);
+    fanGroup.add(dot);
+  }
+}
+
+/* ================= 运动 ================= */
+const S = { t: 0, reversed: true };
+
+function posAt(t) {
+  if (!S.reversed) {
+    // 原电压：电子朝板减速，恰好到达 P 就返回
+    const tt = Math.min(t, T_ACC);
+    const x = -GAP + V0 * tt - 0.5 * A_ACC * tt * tt;
+    return new THREE.Vector3(x, 1.0 - V0 * Math.min(t, T_ACC * 2) * 0.0, 0);
+  }
+  if (t <= T_ACC) {
+    return new THREE.Vector3(-GAP + 0.5 * A_ACC * t * t, 1.6 - V0 * t, 0);
+  }
+  if (t <= T_ACC + T_ARC) {
+    const C = new THREE.Vector3(-R * Math.sin(THETA_ENTRY), R * Math.cos(THETA_ENTRY), 0);
+    const a1 = Math.atan2(-C.y, -C.x);
+    const a = a1 + OMEGA * (t - T_ACC);
+    return new THREE.Vector3(C.x + R * Math.cos(a), C.y + R * Math.sin(a), 0);
+  }
+  const dt = t - T_ACC - T_ARC;
+  return new THREE.Vector3(EXIT.x, EXIT.y + V1 * dt, 0);
+}
+
+function velAt(t) {
+  if (!S.reversed) return new THREE.Vector3(V0 - A_ACC * Math.min(t, T_ACC), 0, 0);
+  if (t <= T_ACC) return new THREE.Vector3(A_ACC * t, -V0, 0);
+  if (t <= T_ACC + T_ARC) {
+    const C = new THREE.Vector3(-R * Math.sin(THETA_ENTRY), R * Math.cos(THETA_ENTRY), 0);
+    const a1 = Math.atan2(-C.y, -C.x);
+    const a = a1 + OMEGA * (t - T_ACC);
+    return new THREE.Vector3(-Math.sin(a), Math.cos(a), 0).multiplyScalar(V1);
+  }
+  return new THREE.Vector3(0, V1, 0);
+}
+
+function rebuild() {
+  document.getElementById('ro-r').textContent = (R / R).toFixed(2);
+  document.getElementById('ro-ang').textContent = Math.round(ARC * 180 / Math.PI) + '°';
+  document.getElementById('ro-x').textContent = (EXIT.x / R).toFixed(2);
+  S.t = 0;
+  trail.clear();
+  buildFan();
+}
+
+document.getElementById('rev').addEventListener('click', ev => {
+  S.reversed = !S.reversed;
+  ev.currentTarget.setAttribute('aria-pressed', String(S.reversed));
+  dirty = !S.reversed;
+  markDrift(isDirty());
+  // 电压方向箭头翻转
+  eGroup.children.forEach(a => a.setDirection(new THREE.Vector3(S.reversed ? 1 : -1, 0, 0)));
+  rebuild();
+});
+document.getElementById('fan').addEventListener('click', ev => {
+  fanGroup.visible = !fanGroup.visible;
+  ev.currentTarget.setAttribute('aria-pressed', String(fanGroup.visible));
+});
+onReset = () => { rebuild(); };
+
+/* === END SCENE === */
+
+const clock = new THREE.Clock();
+let firstFrame = true, hold = 0;
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05) * speed;
+
+  if (!paused) {
+    const end = S.reversed ? TOTAL : T_ACC * 2;
+    S.t += dt;
+    if (S.t > end + 1.2) { S.t = 0; trail.clear(); }
+    const t = Math.min(S.t, end);
+    const p = posAt(t);
+    electron.position.copy(p);
+    eLight.position.copy(p);
+    if (S.t <= end) trail.push(p);
+
+    const v = velAt(t);
+    if (v.length() > 1e-6) {
+      vArrow.position.copy(p);
+      vArrow.setDirection(v.clone().normalize());
+      vArrow.setLength(0.5, 0.12, 0.06);
+    }
+    // 磁场区内的洛伦兹力
+    const inField = S.reversed && t > T_ACC && t < T_ACC + T_ARC;
+    fArrow.visible = inField;
+    if (inField) {
+      const vv = v.clone().normalize();
+      fArrow.position.copy(p);
+      fArrow.setDirection(new THREE.Vector3(vv.y, -vv.x, 0));
+      fArrow.setLength(0.4, 0.11, 0.055);
+    }
+  }
+
+  controls.update();
+  composer.render();
+
+  if (firstFrame) { firstFrame = false; document.title = 'T6_OK'; }
+}
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+rebuild();
+animate();
+</script>
+</body>
+</html>
