@@ -30,6 +30,17 @@ description: 把一道高中物理题（尤其磁场、电场中的带粒子运�
 | 加速电场 + 速度选择器 + 圆形边界磁场的组合（先电场后磁场，垂直打在平板上） | `templates/t5-combo.html` |
 | 圆形边界、临界、多段轨迹、回旋加速器 | 现有模板做不了：明确说明，按最接近的模板做增量，并把增量补进模板库 |
 
+## 视觉基线（2026-11-10 定）
+
+默认走「装置化」风格，参考 `templates/t5-combo-device.html`：
+
+- 深色金属基座 + 发光边条，装置要有"安装"的实体感（底座、支架、法兰环）
+- 关键场区用玻璃腔体包住（`MeshPhysicalMaterial` transmission）
+- 电极/挡板用厚金属件（RoundedBoxGeometry），不要薄片
+- 光源：HemisphereLight + DirectionalLight + RoomEnvironment（PMREM）
+- 后处理：EffectComposer + UnrealBloomPass（阈值 0.95、强度 0.5）+ OutputPass
+- 相机取景让主体占满画面，别留大片空白
+
 ## 硬性要求
 
 - 产物是**单文件 HTML**，不得引用任何网络地址（three.js 已本地化，build 会内联）
