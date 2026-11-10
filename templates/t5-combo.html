@@ -279,15 +279,21 @@ for (let y = 0.6; y <= 3.4; y += 0.7) {
 }
 scene.add(eArrows);
 
-function crossSymbol(x, y, size = 0.09, color = 0x4C8FA0) {
-  const g = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(x - size, y - size, 0), new THREE.Vector3(x + size, y + size, 0),
-    new THREE.Vector3(x + size, y - size, 0), new THREE.Vector3(x - size, y + size, 0)
-  ]);
-  return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity: .55 }));
+function fieldArrows(points, color = 0x5FB3C4, len = 0.55) {
+  const g = new THREE.Group();
+  for (const [x, y] of points) {
+    const a = new THREE.ArrowHelper(new THREE.Vector3(0, 0, -1), new THREE.Vector3(x, y, 0.45), len, color, 0.12, 0.065);
+    a.line.material.transparent = a.cone.material.transparent = true;
+    a.line.material.opacity = 0.45; a.cone.material.opacity = 0.7;
+    g.add(a);
+  }
+  return g;
 }
-const fieldI = new THREE.Group();
-for (let x = -0.5; x <= 0.51; x += 0.5) for (let y = 0.8; y <= 3.3; y += 0.8) fieldI.add(crossSymbol(x, y));
+
+// 区域 I：磁感线垂直纸面向里（-z）
+const ptsI = [];
+for (const x of [-0.45, 0, 0.45]) for (let y = 0.7; y <= 3.3; y += 0.65) ptsI.push([x, y]);
+const fieldI = fieldArrows(ptsI, 0x5FB3C4, 0.7);
 scene.add(fieldI);
 
 // 圆形磁场区域 II
@@ -305,12 +311,13 @@ const disc = new THREE.Mesh(
 disc.position.copy(O2); disc.position.z = -0.03;
 scene.add(disc);
 
-const fieldII = new THREE.Group();
-for (let a = 0; a < 6.28; a += 0.55) {
-  for (let rr = 0.28; rr < 0.95; rr += 0.33) {
-    fieldII.add(crossSymbol(O2.x + rr * Math.cos(a), O2.y + rr * Math.sin(a), 0.07, 0x4C8FA0));
+const ptsII = [];
+for (let x = -0.9; x <= 0.91; x += 0.45) {
+  for (let y = -0.9; y <= 0.91; y += 0.45) {
+    if (x * x + y * y < 0.78) ptsII.push([O2.x + x, O2.y + y]);
   }
 }
+const fieldII = fieldArrows(ptsII, 0x5FB3C4, 0.7);
 scene.add(fieldII);
 
 const o1Label = label3d('O₁', '#7DD3FC', 0.2); o1Label.position.set(-0.3, 0.12, 0);
