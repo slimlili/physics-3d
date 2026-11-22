@@ -48,3 +48,43 @@ if (!near(P.t5.deflectionDeg({ r: 1 / Math.sqrt(3), R: 1 }), 120)) fail("r=R/√
 const e1 = P.t5.exitPoint({ r: 1, R: 1 });
 if (!near(e1.x, 1) || !near(e1.y, -1)) fail("r=R 出射点应为 (R,-R)");
 print("PASS");
+
+// T7 竖直运动：本题数据 g=10、v0=5、t=4 s、松脱点 60 m
+if (!near(P.t7.height({ y0: 60, v0: 5, g: 10, t: 4 }), 0)) fail("4 s 后螺钉应落到井底");
+if (!near(P.t7.velocity({ v0: 5, g: 10, t: 4 }), -35)) fail("落地速度应为 -35 m/s");
+if (!near(P.t7.peakHeight({ y0: 60, v0: 5, g: 10 }), 61.25)) fail("最高点应为 61.25 m");
+if (!near(P.t7.peakTime({ v0: 5, g: 10 }), 0.5)) fail("最高点时刻应为 0.5 s");
+if (!near(P.t7.relDrop({ g: 10, t: 4 }), 80)) fail("相对底板应下落 80 m");
+if (!near(P.t7.liftY({ y0: 60, v: 5, t: 4 }), 80)) fail("底板 4 s 后应在井口 80 m");
+if (!near(P.t7.pathLength({ y0: 60, v0: 5, yEnd: 0, g: 10 }), 62.5)) fail("路程应为 62.5 m");
+if (!near(P.t7.avgSpeed(62.5, 4), 15.625)) fail("平均速率应为 15.625 m/s");
+if (P.t7.avgSpeed(62.5, 0) !== 0) fail("t=0 平均速率应为 0");
+if (!near(P.t7.height({ y0: 0, v0: 0, g: 10, t: 0 }), 0)) fail("t=0 高度应为 0");
+
+// T8 追及相遇：本题 v=2.5、d=50、a1=0.5、a2=2
+if (!near(P.t8.catchTime({ v: 2.5, d: 50, a: 0.5 }), 20)) fail("第一次相遇应为 20 s");
+if (!near(P.t8.maxGap({ v: 2.5, d: 50, a: 0.5 }), 56.25)) fail("最远距离应为 56.25 m");
+if (!near(P.t8.maxGapTime({ v: 2.5, a: 0.5 }), 5)) fail("最远时刻应为 5 s");
+if (!near(P.t8.brakeStopTime({ v: 10, a: 2 }), 5)) fail("刹车停下应为 5 s");
+if (!near(P.t8.brakeDistance({ v: 10, a: 2 }), 25)) fail("刹车距离应为 25 m");
+if (!near(P.t8.secondMeet({ vA: 2.5, vB: 10, a: 2 }), 10)) fail("第二次相遇 Δt 应为 10 s");
+if (P.t8.catchTime({ v: 2.5, d: 50, a: 0 }) !== 0) fail("a=0 不得返回 NaN");
+
+// T9 质谱仪：m=1、q=1、v=2、B=1 → r=2、落点 4
+if (!near(P.t9.selectorSpeed(2, 1), 2)) fail("T9 v=E/B");
+if (!near(P.t9.radius({ m: 1, q: 1, v: 2, B: 1 }), 2)) fail("T9 r=mv/qB");
+if (!near(P.t9.landing(2), 4)) fail("T9 落点 2r");
+if (!near(P.t9.spacing(2, 3), 2)) fail("T9 间距 2Δr");
+if (P.t9.radius({ m: 1, q: 1, v: 2, B: 0 }) !== 0) fail("T9 B=0 半径应为 0");
+if (P.t9.selectorSpeed(2, 0) !== 0) fail("T9 B=0 速度应为 0");
+
+// T10 回旋加速器：m=1、q=1、B=1 → T=2π；B=2 → T=π
+if (!near(P.t10.period({ m: 1, q: 1, B: 1 }), 2 * Math.PI)) fail("T10 T=2πm/qB");
+if (!near(P.t10.period({ m: 1, q: 1, B: 2 }), Math.PI)) fail("T10 T∝1/B");
+if (!near(P.t10.frequency({ m: 1, q: 1, B: 1 }), 1 / (2 * Math.PI))) fail("T10 f=1/T");
+if (!near(P.t10.vMax({ m: 1, q: 1, B: 1, R: 3 }), 3)) fail("T10 vmax=qBR/m");
+if (!near(P.t10.energyMax({ m: 1, q: 1, B: 1, R: 3 }), 4.5)) fail("T10 Ek=½mvmax²");
+if (P.t10.crossings({ m: 1, q: 1, B: 1, R: 3, U: 1 }) !== 5) fail("T10 加速次数向上取整");
+if (!near(P.t10.radiusN({ n: 1, m: 1, q: 1, B: 1, U: 2 }), 2)) fail("T10 r1=√(2mU)/qB");
+if (P.t10.radiusN({ n: 1, m: 1, q: 1, B: 0, U: 2 }) !== 0) fail("T10 B=0 不得 NaN");
+if (P.t10.crossings({ m: 1, q: 1, B: 1, R: 3, U: 0 }) !== 0) fail("T10 U=0 加速次数应为 0");

@@ -33,7 +33,8 @@ def parse_num(text: str):
 def run_dom(url: str):
     return subprocess.run(
         [CHROME, "--headless=new", "--virtual-time-budget=4000",
-         "--enable-logging=stderr", "--log-level=0", "--dump-dom", url],
+         "--enable-unsafe-swiftshader", "--enable-logging=stderr", "--log-level=0",
+         "--dump-dom", url],
         capture_output=True, text=True,
     )
 
@@ -104,8 +105,8 @@ def check(path: pathlib.Path) -> list[str]:
     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
         shot = pathlib.Path(f.name)
     subprocess.run(
-        [CHROME, "--headless=new", "--hide-scrollbars", "--window-size=1280,800",
-         "--virtual-time-budget=4000", f"--screenshot={shot}", url],
+        [CHROME, "--headless=new", "--hide-scrollbars", "--enable-unsafe-swiftshader",
+         "--window-size=1280,800", "--virtual-time-budget=4000", f"--screenshot={shot}", url],
         capture_output=True, text=True,
     )
     if ensure_pil():

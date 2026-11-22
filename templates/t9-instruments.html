@@ -1,0 +1,1212 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>质谱仪 · 回旋加速器</title>
+<style>
+  :root{
+    --bg:#080F12; --panel:rgba(12,26,32,.86); --line:rgba(126,214,220,.22);
+    --ink:#E4F1F3; --muted:#88A3AA; --brand:#4ADE80; --cyan:#7DD3FC;
+    --warn:#F2C14E; --bad:#F87171; --violet:#C4B5FD; --amber:#F2C14E;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  canvas{display:block}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(ellipse at 50% 46%,transparent 42%,rgba(0,0,0,.52) 100%)}
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+
+  header{position:absolute;left:24px;top:18px;max-width:520px}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;color:var(--brand);opacity:.85;margin:0 0 6px}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.02em}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:5px;line-height:1.5}
+
+  .modes{position:absolute;left:50%;top:20px;transform:translateX(-50%);pointer-events:auto;
+    display:flex;gap:6px;background:var(--panel);border:1px solid var(--line);
+    border-radius:11px;padding:4px;backdrop-filter:blur(10px)}
+  .modes button{font:inherit;font-size:12.5px;padding:7px 14px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid transparent;white-space:nowrap}
+  .modes button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+
+  .readout{position:absolute;left:24px;top:124px;display:grid;gap:7px;font-variant-numeric:tabular-nums}
+  .readout[hidden]{display:none}
+  .ro{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+  .ro > span{min-width:112px}
+  .ro b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;color:var(--ink);font-weight:500;min-width:58px;text-align:right}
+  .ro i{font-style:normal;font-size:11px;color:var(--muted);opacity:.85}
+  .ro .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;vertical-align:1px}
+
+  .panel{position:absolute;right:22px;top:92px;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px 12px;backdrop-filter:blur(10px);width:278px}
+  .cap{font-size:11px;color:var(--muted);margin:12px 0 6px;letter-spacing:.08em}
+  .seg{display:flex;gap:6px}
+  .seg button,.act button{
+    flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+  .act{display:flex;gap:8px;margin-top:10px}
+  .act button:hover{border-color:var(--brand);color:var(--brand)}
+
+  .sl{display:block;margin:0 0 12px}
+  .sl .line{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted)}
+  .sl .line b{font-family:ui-monospace,Menlo,monospace;font-size:13.5px;color:var(--ink);font-weight:500}
+  .sl .line em{font-style:normal;font-size:10.5px;color:var(--muted);opacity:.8;margin-left:3px}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:16px;background:transparent;margin:5px 0 0;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:2px;
+    background:linear-gradient(90deg,rgba(74,222,128,.55),rgba(126,214,220,.22))}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;
+    background:var(--brand);margin-top:-4.5px;box-shadow:0 0 9px rgba(74,222,128,.75)}
+  .hint2{font-size:11px;color:var(--muted);opacity:.7;margin:2px 0 0;line-height:1.55}
+
+  .notes{position:absolute;left:24px;bottom:22px;pointer-events:auto;width:min(480px,calc(100vw - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:11px 15px;
+    backdrop-filter:blur(10px);font-size:12.5px;color:var(--muted)}
+  .notes summary{cursor:pointer;color:var(--ink);font-size:12.5px;list-style:none}
+  .notes summary::-webkit-details-marker{display:none}
+  .notes summary::before{content:"▸ ";color:var(--brand)}
+  .notes[open] summary::before{content:"▾ "}
+  .notes .body{margin-top:9px;line-height:1.8}
+  .notes .f{font-family:ui-monospace,Menlo,monospace;color:var(--cyan)}
+  .notes .k{color:var(--brand)}
+
+  .hint{position:absolute;left:24px;bottom:7px;font-size:11px;color:var(--muted);opacity:.5}
+
+  @media (max-width:820px){
+    header{left:16px;top:12px;max-width:none;right:16px} h1{font-size:16px} h1 small{font-size:11px}
+    .modes{top:auto;bottom:12px;left:16px;right:16px;transform:none;justify-content:center}
+    .readout{left:16px;top:96px;gap:4px} .ro > span{min-width:88px} .ro b{font-size:14px}
+    .hint2{display:none}
+    .panel{left:12px;right:auto;top:auto;bottom:64px;width:calc(100vw - 24px);max-width:calc(100vw - 24px);overflow:hidden}
+    .seg button{padding:6px 4px;font-size:12px}
+    .notes{display:none}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+  <header>
+    <p class="eyebrow">选择性必修二 · 磁场中的仪器</p>
+    <h1 id="mode-name">质谱仪
+      <small id="mode-sub">速度选择器 + 偏转磁场：按比荷分离同位素</small>
+    </h1>
+  </header>
+
+  <div class="modes" id="modes">
+    <button id="mode-spec" aria-pressed="true">质谱仪</button>
+    <button id="mode-cyclo" aria-pressed="false">回旋加速器</button>
+  </div>
+
+  <div class="readout" id="ro-spec">
+    <div class="ro"><span>选择速度 v</span><b id="ro-v">1.00</b><i>×10⁶ m/s</i></div>
+    <div class="ro"><span><span class="dot" style="background:#7DF9C4"></span>¹H⁺ 轨道半径</span><b id="ro-r1">10.4</b><i>cm</i></div>
+    <div class="ro"><span><span class="dot" style="background:#F2C14E"></span>²H⁺ 轨道半径</span><b id="ro-r2">20.9</b><i>cm</i></div>
+    <div class="ro"><span><span class="dot" style="background:#C4B5FD"></span>³H⁺ 轨道半径</span><b id="ro-r3">31.3</b><i>cm</i></div>
+    <div class="ro"><span>相邻落点间距</span><b id="ro-dz">20.9</b><i>cm</i></div>
+  </div>
+
+  <div class="readout" id="ro-cyclo" hidden>
+    <div class="ro"><span>回旋周期 T</span><b id="ro-T">65.6</b><i>ns</i></div>
+    <div class="ro"><span>回旋频率 f</span><b id="ro-f">15.2</b><i>MHz</i></div>
+    <div class="ro"><span>加速次数 N</span><b id="ro-N">77</b><i>次</i></div>
+    <div class="ro"><span>最大速度 v<sub>max</sub></span><b id="ro-mv">1.92</b><i>×10⁷ m/s</i></div>
+    <div class="ro"><span>最大动能 E<sub>k</sub></span><b id="ro-E">1.92</b><i>MeV</i></div>
+  </div>
+
+  <details class="notes" id="notes">
+    <summary>原理要点</summary>
+    <div class="body" id="notes-body"></div>
+  </details>
+
+  <div class="panel">
+    <div id="ctrl-spec">
+      <label class="sl">
+        <span class="line"><span>选择速度 v</span><span><b id="val-v">1.00</b><em>×10⁶ m/s</em></span></span>
+        <input id="s-v" type="range" min="0.5" max="1" step="0.01" value="1">
+      </label>
+      <label class="sl">
+        <span class="line"><span>偏转磁场 B₂</span><span><b id="val-B2">0.100</b><em>T</em></span></span>
+        <input id="s-B2" type="range" min="0.1" max="0.2" step="0.005" value="0.1">
+      </label>
+      <p class="hint2">三束离子以同一速度通过选择器，比荷 m/q = 1 : 2 : 3，落点半径 r ∝ m/q。</p>
+    </div>
+
+    <div id="ctrl-cyclo" hidden>
+      <label class="sl">
+        <span class="line"><span>磁感应强度 B</span><span><b id="val-B">1.00</b><em>T</em></span></span>
+        <input id="s-B" type="range" min="0.6" max="1.2" step="0.02" value="1">
+      </label>
+      <label class="sl">
+        <span class="line"><span>加速电压 U</span><span><b id="val-U">25</b><em>kV</em></span></span>
+        <input id="s-U" type="range" min="15" max="40" step="1" value="25">
+      </label>
+      <label class="sl">
+        <span class="line"><span>D 形盒半径 R</span><span><b id="val-R">20</b><em>cm</em></span></span>
+        <input id="s-R" type="range" min="15" max="22" step="0.5" value="20">
+      </label>
+      <div class="cap" style="margin-top:4px">被加速粒子</div>
+      <div class="seg" id="parts">
+        <button data-p="p" aria-pressed="true">质子</button>
+        <button data-p="d" aria-pressed="false">氘核</button>
+        <button data-p="a" aria-pressed="false">α 粒子</button>
+      </div>
+      <p class="hint2">动画已大幅放慢，仅作示意；每次过缝隙电势差都反向，D 形盒边缘颜色表示当前极性。</p>
+    </div>
+
+    <div class="cap">播放速度</div>
+    <div class="seg" id="speed-row">
+      <button class="sp" data-s="0.25">¼×</button>
+      <button class="sp" data-s="0.5">½×</button>
+      <button class="sp" data-s="1" aria-pressed="true">1×</button>
+      <button class="sp" data-s="2">2×</button>
+    </div>
+    <div class="act">
+      <button id="pause">暂停</button>
+      <button id="reset">重播</button>
+    </div>
+  </div>
+
+  <div class="hint">拖动旋转视角 · 滚轮缩放 · 空格暂停 · R 重播</div>
+</div>
+
+<script id="expect" type="application/json">{"v":1.00,"r1":10.4,"r2":20.9,"r3":31.3,"dz":20.9,"T":65.6,"f":15.2,"N":77,"mv":1.92,"E":1.92}</script>
+<script src="../src/physics.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../lib/three.module.js",
+    "three/addons/controls/OrbitControls.js": "../lib/OrbitControls.js",
+    "three/addons/geometries/RoundedBoxGeometry.js": "../lib/RoundedBoxGeometry.js",
+    "three/addons/environments/RoomEnvironment.js": "../lib/RoomEnvironment.js",
+    "@post/postprocessing/EffectComposer.js": "../lib/post/postprocessing/EffectComposer.js",
+    "@post/postprocessing/Pass.js": "../lib/post/postprocessing/Pass.js",
+    "@post/postprocessing/ShaderPass.js": "../lib/post/postprocessing/ShaderPass.js",
+    "@post/postprocessing/MaskPass.js": "../lib/post/postprocessing/MaskPass.js",
+    "@post/postprocessing/RenderPass.js": "../lib/post/postprocessing/RenderPass.js",
+    "@post/postprocessing/UnrealBloomPass.js": "../lib/post/postprocessing/UnrealBloomPass.js",
+    "@post/postprocessing/OutputPass.js": "../lib/post/postprocessing/OutputPass.js",
+    "@post/shaders/CopyShader.js": "../lib/post/shaders/CopyShader.js",
+    "@post/shaders/LuminosityHighPassShader.js": "../lib/post/shaders/LuminosityHighPassShader.js",
+    "@post/shaders/OutputShader.js": "../lib/post/shaders/OutputShader.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from '@post/postprocessing/EffectComposer.js';
+import { RenderPass } from '@post/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '@post/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '@post/postprocessing/OutputPass.js';
+
+/* ================= 舞台 ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080F12);
+scene.fog = new THREE.Fog(0x080F12, 22, 46);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 220);
+camera.position.set(4, 7.2, 10.6);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.12;
+document.body.appendChild(renderer.domElement);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+{
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#0a1a24');
+  g.addColorStop(0.52, '#070e14');
+  g.addColorStop(1, '#04080b');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
+  const bgTex = new THREE.CanvasTexture(c);
+  bgTex.colorSpace = THREE.SRGBColorSpace;
+  bgTex.mapping = THREE.EquirectangularReflectionMapping;
+  scene.background = bgTex;
+  scene.backgroundIntensity = 0.9;
+}
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.52, 0.5, 0.95);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(-1.6, 0, 2.7);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3.2;
+controls.maxDistance = 26;
+
+scene.add(new THREE.HemisphereLight(0xbfe9ff, 0x111a1e, 0.6));
+const key = new THREE.DirectionalLight(0xd9fbff, 1.75);
+key.position.set(7, 11, 8);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x6fb7c9, 0.55);
+fill.position.set(-7, 3, 6);
+scene.add(fill);
+const rim = new THREE.DirectionalLight(0x3d7f8c, 0.45);
+rim.position.set(2, 2, -9);
+scene.add(rim);
+
+const grid = new THREE.GridHelper(18, 36, 0x1d3b46, 0x122a33);
+grid.position.y = -2.4;
+grid.material.transparent = true;
+grid.material.opacity = 0.5;
+scene.add(grid);
+
+/* ================= 常量与材质 ================= */
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const SC = 0.12;                 // 1 场景单位 = 12 cm
+const QE = 1.602176634e-19;
+const MP = 1.67262192e-27;
+
+const baseMat = new THREE.MeshStandardMaterial({ color: 0x1B262C, metalness: 0.9, roughness: 0.36, envMapIntensity: 1.1 });
+const plateMat = new THREE.MeshStandardMaterial({ color: 0x2E414A, metalness: 0.88, roughness: 0.26, envMapIntensity: 1.0 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x22333B, metalness: 0.82, roughness: 0.32 });
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0x9FD6E6, metalness: 0, roughness: 0.06, transmission: 0.94, thickness: 0.5,
+  ior: 1.45, transparent: true, envMapIntensity: 0.7, side: THREE.DoubleSide
+});
+const glowMat = c => new THREE.MeshBasicMaterial({ color: c });
+const stripMat = new THREE.MeshBasicMaterial({ color: 0x1F8C7C, transparent: true, opacity: 0.45 });
+for (const m of [baseMat, plateMat, darkMat, glassMat, stripMat]) m.userData.shared = true;
+
+const rootSpec = new THREE.Group();
+const rootCyclo = new THREE.Group();
+const dynSpec = new THREE.Group();
+const dynCyclo = new THREE.Group();
+rootSpec.add(dynSpec);
+rootCyclo.add(dynCyclo);
+scene.add(rootSpec, rootCyclo);
+
+rootCyclo.visible = false;
+
+/* ================= 工具 ================= */
+function label3d(text, color = '#9FE6C4', size = 0.3) {
+  const pad = 10, font = 64;
+  const c = document.createElement('canvas');
+  const m = c.getContext('2d');
+  m.font = `600 ${font}px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif`;
+  const w = Math.ceil(m.measureText(text).width) + pad * 2;
+  c.width = w; c.height = font + pad * 2;
+  const ctx = c.getContext('2d');
+  ctx.font = `600 ${font}px "PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(text, c.width / 2, c.height / 2 + 2);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.minFilter = THREE.LinearFilter;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: tex, transparent: true, depthWrite: false, depthTest: false, opacity: 0.94
+  }));
+  s.scale.set(size * c.width / c.height, size, 1);
+  s.renderOrder = 20;
+  return s;
+}
+
+function makeTrail(maxPoints = 7000, color = 0x8CF5C4) {
+  const pos = new Float32Array(maxPoints * 3);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setDrawRange(0, 0);
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({
+    color, transparent: true, opacity: 0.95, depthTest: false
+  }));
+  line.renderOrder = 3;
+  line.frustumCulled = false;
+  let n = 0;
+  return {
+    line,
+    push(p) {
+      if (n >= maxPoints) return;
+      pos[n * 3] = p.x; pos[n * 3 + 1] = p.y; pos[n * 3 + 2] = p.z;
+      n++;
+      geo.setDrawRange(0, n);
+      geo.attributes.position.needsUpdate = true;
+    },
+    clear() { n = 0; geo.setDrawRange(0, 0); },
+    get count() { return n; }
+  };
+}
+
+function dashedGhost(points, color, opacity = 0.5) {
+  const g = new THREE.BufferGeometry().setFromPoints(points);
+  const line = new THREE.Line(g, new THREE.LineDashedMaterial({
+    color, dashSize: 0.08, gapSize: 0.11, transparent: true, opacity
+  }));
+  line.computeLineDistances();
+  line.renderOrder = 2;
+  return line;
+}
+
+function fieldArrow(x, y, z, dir, len, color, opacity = 0.5, head = 0.1) {
+  const a = new THREE.ArrowHelper(dir, V(x, y, z), len, color, head, head * 0.5);
+  a.line.material.transparent = a.cone.material.transparent = true;
+  a.line.material.opacity = opacity * 0.72;
+  a.cone.material.opacity = opacity;
+  return a;
+}
+
+function clearGroup(group) {
+  while (group.children.length) {
+    const c = group.children.pop();
+    c.traverse(o => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        mats.forEach(mm => {
+          if (mm.userData && mm.userData.shared) return;
+          if (mm.map) mm.map.dispose();
+          mm.dispose();
+        });
+      }
+    });
+  }
+}
+
+function tubeBetween(a, b, r = 0.03, color = 0x35525c) {
+  const d = b.clone().sub(a);
+  const mesh = new THREE.Mesh(
+    new THREE.CylinderGeometry(r, r, d.length(), 12),
+    new THREE.MeshStandardMaterial({ color, metalness: 0.75, roughness: 0.35 })
+  );
+  mesh.position.copy(a).add(b).multiplyScalar(0.5);
+  mesh.quaternion.setFromUnitVectors(V(0, 1, 0), d.clone().normalize());
+  return mesh;
+}
+
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
+/* ================= 状态与 UI ================= */
+const state = {
+  mode: 'spec',
+  speed: 1,
+  paused: false,
+  t: 0,
+  total: 0,
+  camTween: 0,
+};
+const camGoal = { pos: V(4, 7.2, 10.6), target: V(-1.6, 0, 2.7) };
+
+const NOTES = {
+  spec: `
+    <div><span class="k">速度选择器</span>：电场 E 与磁场 B₁ 正交，只有 <span class="f">qE = qvB₁ → v = E/B₁</span> 的离子直线通过。</div>
+    <div><span class="k">偏转磁场</span>：离子垂直进入 B₂，做半圆运动，<span class="f">r = mv/(qB₂)</span>，落点距入射口 <span class="f">x = 2r</span>。</div>
+    <div><span class="k">分离原理</span>：速度相同的离子，半径只由比荷决定，<span class="f">r ∝ m/q</span>；比荷越大，半径越小。</div>
+    <div><span class="k">测量</span>：量出落点位置 x，由 <span class="f">m/q = B₂x/(2v)</span> 反推比荷，从而鉴别同位素。</div>
+  `,
+  cyclo: `
+    <div><span class="k">回旋周期</span>：<span class="f">T = 2πm/(qB)</span>，与速度、半径无关 —— 这是能持续同步加速的关键。</div>
+    <div><span class="k">同步条件</span>：交变电压频率必须等于 <span class="f">f = qB/(2πm)</span>，每半圈换一次极性。</div>
+    <div><span class="k">能量来源</span>：每过一次缝隙获得 <span class="f">qU</span>，n 次后 <span class="f">E_k = nqU</span>。</div>
+    <div><span class="k">最大动能</span>：半径受 D 形盒限制 <span class="f">r ≤ R</span>，故 <span class="f">v_max = qBR/m</span>，<span class="f">E_kmax = q²B²R²/(2m)</span>。</div>
+    <div><span class="k">重要结论</span>：最大动能只由 B、R、粒子决定，<span style="color:var(--warn)">与加速电压 U 无关</span>；U 只决定需要加速多少次。</div>
+  `,
+};
+
+const $ = id => document.getElementById(id);
+
+function setMode(mode) {
+  state.mode = mode;
+  state.paused = false;
+  $('pause').textContent = '暂停';
+  const isSpec = mode === 'spec';
+  rootSpec.visible = isSpec;
+  rootCyclo.visible = !isSpec;
+  $('ro-spec').hidden = !isSpec;
+  $('ro-cyclo').hidden = isSpec;
+  $('ctrl-spec').hidden = !isSpec;
+  $('ctrl-cyclo').hidden = isSpec;
+  $('mode-spec').setAttribute('aria-pressed', String(isSpec));
+  $('mode-cyclo').setAttribute('aria-pressed', String(!isSpec));
+  $('mode-name').childNodes[0].nodeValue = isSpec ? '质谱仪' : '回旋加速器';
+  $('mode-sub').textContent = isSpec
+    ? '速度选择器 + 偏转磁场：按比荷分离同位素'
+    : '两个 D 形盒 + 正交磁场：周期不变的级联加速';
+  $('notes-body').innerHTML = NOTES[mode];
+  const k = innerWidth / innerHeight < 0.9 ? 1.35 : 1;
+  const goal = (px, py, pz, tx, ty, tz) => {
+    camGoal.target.set(tx, ty, tz);
+    camGoal.pos.set(tx + (px - tx) * k, ty + (py - ty) * k, tz + (pz - tz) * k);
+  };
+  if (isSpec) {
+    goal(3.6, 7.0, 10.4, -1.5, 0, 2.75);
+    rebuildSpec();
+  } else {
+    goal(3.1, 5.9, 6.3, 0, -0.2, 0);
+    rebuildCyclo(true);
+  }
+  state.camTween = 1;
+}
+
+/* ================= 质谱仪 ================= */
+const SPEC = {
+  params: { v: 1.0e6, B2: 0.10 },
+  RCH: 2.9,                 // 玻璃腔半径（场景单位）
+  x0: -1.75,                // 入射面 x
+  y: 0,
+  counts: [1, 2, 3],        // m/q 相对质子
+  colors: [0x7DF9C4, 0xF2C14E, 0xC4B5FD],
+  names: ['¹H⁺', '²H⁺', '³H⁺'],
+  items: [],
+  ghosts: [],
+  marks: [],
+  clouds: [],
+};
+
+function buildSpecStatic() {
+  const g = rootSpec;
+
+  // 底座
+  const base = new THREE.Mesh(new RoundedBoxGeometry(8.2, 0.32, 6.3, 3, 0.06), baseMat);
+  base.position.set(-2.15, -0.75, 2.7);
+  g.add(base);
+  for (const dz of [0.18, 5.22]) {
+    const s = new THREE.Mesh(new THREE.BoxGeometry(7.8, 0.026, 0.045), stripMat);
+    s.position.set(-2.15, -0.56, dz);
+    g.add(s);
+  }
+
+  // 离子源
+  const src = new THREE.Mesh(new RoundedBoxGeometry(0.62, 0.66, 0.66, 3, 0.06), plateMat);
+  src.position.set(-5.86, 0, 0);
+  g.add(src);
+  const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.11, 0.36, 18), darkMat);
+  noz.rotation.z = -Math.PI / 2;
+  noz.position.set(-5.53, 0, 0);
+  g.add(noz);
+  const srcGlow = new THREE.Mesh(new THREE.SphereGeometry(0.07, 16, 12), glowMat(0xA7F3D0));
+  srcGlow.position.set(-5.44, 0, 0);
+  g.add(srcGlow);
+
+  // 速度选择器：前后两块极板（z = ±0.62）
+  const plateGeo = new RoundedBoxGeometry(1.78, 1.16, 0.06, 3, 0.022);
+  const pPos = new THREE.Mesh(plateGeo, plateMat);
+  pPos.position.set(-3.75, 0, 0.62);
+  const pNeg = new THREE.Mesh(plateGeo, plateMat);
+  pNeg.position.set(-3.75, 0, -0.62);
+  g.add(pPos, pNeg);
+  // 极板内表面发光条：+ 在 +z，− 在 −z
+  const trimPos = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.035, 0.02), glowMat(0xF87171));
+  trimPos.position.set(-3.75, 0.42, 0.585);
+  const trimNeg = new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.035, 0.02), glowMat(0x7DD3FC));
+  trimNeg.position.set(-3.75, -0.42, -0.585);
+  g.add(trimPos, trimNeg);
+
+  // 选择器玻璃罩
+  const selGlass = new THREE.Mesh(new THREE.BoxGeometry(1.96, 1.5, 1.5), glassMat);
+  selGlass.position.set(-3.75, 0, 0);
+  g.add(selGlass);
+  // 框边
+  for (const y of [-0.75, 0.75]) {
+    for (const z of [-0.75, 0.75]) {
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(1.98, 0.025, 0.025), darkMat);
+      bar.position.set(-3.75, y, z);
+      g.add(bar);
+    }
+  }
+
+  // 选择器内电场（−z 方向）与磁场（+y）
+  for (const x of [-4.35, -4.0, -3.65, -3.3, -2.95]) {
+    for (const y of [-0.34, 0, 0.34]) {
+      g.add(fieldArrow(x, y, 0.48, V(0, 0, -1), 0.86, 0xF2C14E, 0.42, 0.065));
+    }
+  }
+  for (const x of [-4.2, -3.75, -3.3]) {
+    for (const z of [-0.35, 0, 0.35]) {
+      g.add(fieldArrow(x, -0.62, z, V(0, 1, 0), 0.5, 0x5FB3C4, 0.32, 0.055));
+    }
+  }
+
+  // 狭缝：上下两块，中间留缝
+  for (const y of [-0.5, 0.5]) {
+    const p = new THREE.Mesh(new RoundedBoxGeometry(0.055, 0.62, 1.5, 3, 0.02), plateMat);
+    p.position.set(-2.55, y, 0);
+    g.add(p);
+  }
+  const slitGlow = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.9), glowMat(0x8CF5C4));
+  slitGlow.position.set(-2.53, 0, 0);
+  g.add(slitGlow);
+
+  // 偏转腔：半圆柱玻璃（x ≥ x0）
+  const chamber = new THREE.Mesh(
+    new THREE.CylinderGeometry(SPEC.RCH, SPEC.RCH, 0.9, 96, 1, true, 0, Math.PI),
+    glassMat
+  );
+  chamber.position.set(SPEC.x0, 0, SPEC.RCH);
+  g.add(chamber);
+
+  // 腔体上下沿弧线
+  for (const y of [-0.45, 0.45]) {
+    const pts = [];
+    for (let i = 0; i <= 96; i++) {
+      const t = Math.PI * i / 96;
+      pts.push(V(SPEC.x0 + SPEC.RCH * Math.sin(t), y, SPEC.RCH - SPEC.RCH * Math.cos(t)));
+    }
+    const l = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: 0x7FD8E8, transparent: true, opacity: 0.6 }));
+    g.add(l);
+  }
+  // 平直面上的竖框
+  for (const z of [0, SPEC.RCH * 2]) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.92, 0.03), darkMat);
+    b.position.set(SPEC.x0, 0, z);
+    g.add(b);
+  }
+
+  // 偏转磁场（竖直向上）
+  for (let x = -1.55; x <= 0.85; x += 0.48) {
+    for (let z = 0.42; z <= 5.4; z += 0.52) {
+      const dx = x - SPEC.x0, dz = z - SPEC.RCH;
+      if (dx * dx + dz * dz < (SPEC.RCH - 0.15) ** 2 && Math.abs(dz) < SPEC.RCH) {
+        g.add(fieldArrow(x, -0.62, z, V(0, 1, 0), 0.48, 0x5FB3C4, 0.24, 0.05));
+      }
+    }
+  }
+
+  // 照相底片
+  const det = new THREE.Mesh(new RoundedBoxGeometry(0.11, 0.64, 5.55, 3, 0.03), darkMat);
+  det.position.set(-1.94, 0, 2.98);
+  g.add(det);
+  const detFace = new THREE.Mesh(new THREE.PlaneGeometry(5.45, 0.5), new THREE.MeshBasicMaterial({
+    color: 0x173840, side: THREE.DoubleSide
+  }));
+  detFace.rotation.y = -Math.PI / 2;
+  detFace.position.set(-1.885, 0, 2.98);
+  g.add(detFace);
+
+  // 腔体支座
+  const mount = new THREE.Mesh(new RoundedBoxGeometry(2.6, 0.5, 3.2, 3, 0.05), baseMat);
+  mount.position.set(0.4, -0.94, 2.9);
+  g.add(mount);
+  const mount2 = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.5, 1.0, 3, 0.04), baseMat);
+  mount2.position.set(-1.85, -0.94, 0.3);
+  g.add(mount2);
+
+  // 标签
+  const add = (txt, x, y, z, color, size = 0.3) => {
+    const s = label3d(txt, color, size); s.position.set(x, y, z); g.add(s);
+  };
+  add('离子源', -5.9, 0.78, 0, '#9FE6C4', 0.28);
+  add('速度选择器', -3.75, 1.02, 0, '#F2C14E', 0.3);
+  add('E ⟂ B', -3.75, -0.98, 0, '#88A3AA', 0.24);
+  add('狭缝', -2.55, 0.92, 0, '#9FE6C4', 0.26);
+  add('偏转磁场 B₂', 0.05, 0.86, 2.9, '#7DD3FC', 0.3);
+  add('照相底片', -2.35, 0.62, 5.15, '#F2C14E', 0.27);
+}
+
+function specReadout() {
+  const { v, B2 } = SPEC.params;
+  const rs = SPEC.counts.map(i => PHYS.t9.radius({ m: i * MP, q: QE, v, B: B2 }));
+  $('ro-v').textContent = (v / 1e6).toFixed(2);
+  $('ro-r1').textContent = (rs[0] * 100).toFixed(1);
+  $('ro-r2').textContent = (rs[1] * 100).toFixed(1);
+  $('ro-r3').textContent = (rs[2] * 100).toFixed(1);
+  $('ro-dz').textContent = (PHYS.t9.spacing(rs[0], rs[1]) * 100).toFixed(1);
+  return rs;
+}
+
+function buildSpec() {
+  clearGroup(dynSpec);
+  SPEC.items = []; SPEC.ghosts = []; SPEC.marks = []; SPEC.clouds = [];
+  const rs = specReadout();
+  const SPD = 2.55;                  // 场景单位/秒（演示速度）
+  const xA = -5.44, xD = SPEC.x0;
+  const straight = xD - xA;
+  const zOff = [-0.05, 0, 0.05];
+
+  SPEC.paths = [];
+  let maxTotal = 0;
+  for (let i = 0; i < 3; i++) {
+    const r = rs[i] / SC;            // cm → 场景单位
+    const y = 0, z0 = zOff[i];
+    const tStraight = straight / SPD;
+    const tArc = Math.PI * r / SPD;
+    const tExit = 0.17 / SPD;
+    const delay = i * 0.12;
+    const total = tStraight + tArc + tExit;
+    maxTotal = Math.max(maxTotal, delay + total);
+    SPEC.paths.push({ r, y, z0, tStraight, tArc, tExit, delay, total });
+
+    // 预测轨迹
+    const pts = [];
+    for (let k = 0; k <= 260; k++) {
+      const tt = total * k / 260;
+      pts.push(specPos(SPEC.paths[i], tt));
+    }
+    const ghost = dashedGhost(pts, SPEC.colors[i], 0.22);
+    dynSpec.add(ghost);
+    SPEC.ghosts.push(ghost);
+
+    // 半圆段用细管描绘，避免 1px 线在投影上太细
+    const arcPts = [];
+    for (let k = 0; k <= 64; k++) {
+      const ph = Math.PI * k / 64;
+      arcPts.push(V(SPEC.x0 + r * Math.sin(ph), y, z0 + r - r * Math.cos(ph)));
+    }
+    const arcTube = new THREE.Mesh(
+      new THREE.TubeGeometry(new THREE.CatmullRomCurve3(arcPts), 72, 0.019, 8, false),
+      new THREE.MeshBasicMaterial({ color: SPEC.colors[i], transparent: true, opacity: 0.55 })
+    );
+    dynSpec.add(arcTube);
+
+    // 粒子
+    const mesh = new THREE.Mesh(
+      new THREE.SphereGeometry(0.075, 26, 20),
+      new THREE.MeshStandardMaterial({
+        color: SPEC.colors[i], emissive: SPEC.colors[i], emissiveIntensity: 1.9, roughness: 0.35
+      })
+    );
+    dynSpec.add(mesh);
+
+    const trail = makeTrail(6000, SPEC.colors[i]);
+    dynSpec.add(trail.line);
+
+    SPEC.items.push({ mesh, trail, path: SPEC.paths[i], lastT: 0 });
+
+    // 落点标记
+    const mark = new THREE.Mesh(new THREE.SphereGeometry(0.055, 18, 14), glowMat(SPEC.colors[i]));
+    mark.position.set(-1.86, y, z0 + 2 * r);
+    dynSpec.add(mark);
+    SPEC.marks.push(mark);
+
+    // 落点用彩色小球标记，颜色与读数面板上的圆点对应
+  }
+  SPEC.maxTotal = maxTotal;
+  state.total = maxTotal;
+  state.t = 0;
+}
+
+function specPos(p, t) {
+  const { r, y, z0, tStraight, tArc, tExit } = p;
+  if (t <= tStraight) {
+    const u = t / tStraight;
+    const x = -5.44 + (SPEC.x0 + 5.44) * u;
+    return V(x, y, z0);
+  }
+  const t2 = t - tStraight;
+  if (t2 <= tArc) {
+    const ph = Math.PI * t2 / tArc;
+    return V(SPEC.x0 + r * Math.sin(ph), y, z0 + r - r * Math.cos(ph));
+  }
+  const t3 = Math.min(tExit, t2 - tArc);
+  const u = t3 / tExit;
+  return V(SPEC.x0 - 0.17 * u, y, z0 + 2 * r);
+}
+
+function specVel(p, t) {
+  const eps = 1e-3;
+  const a = specPos(p, Math.max(0, t - eps));
+  const b = specPos(p, Math.min(p.total, t + eps));
+  return b.sub(a).normalize();
+}
+
+function rebuildSpec() {
+  buildSpec();
+  setModeInPlace();
+}
+
+// 切换时不要再次重置相机/动画
+function setModeInPlace() {
+  state.t = 0;
+  for (const it of SPEC.items) { it.trail.clear(); it.lastT = 0; }
+  for (const it of CY.items || []) it.trail.clear();
+}
+
+/* ================= 回旋加速器 ================= */
+const PARTS = [
+  { id: 'p', name: '质子', m: MP, q: QE, color: 0x7DF9C4 },
+  { id: 'd', name: '氘核', m: 2 * MP, q: QE, color: 0xF2C14E },
+  { id: 'a', name: 'α 粒子', m: 4 * MP, q: 2 * QE, color: 0xC4B5FD },
+];
+
+const CY = {
+  p: { B: 1.0, U: 25000, R: 0.20, part: 'p' },
+  staticR: -1,
+  N: 0, halfDur: 0.15, totalSpin: 0, exitDur: 0.5,
+  RD: 1.667,
+  items: [],
+  ghosts: [],
+  exitDir: V(0, 0, 0),
+  exitPos: V(0, 0, 0),
+  strips: [],
+  labels: [],
+};
+
+function cycloParams() {
+  const part = PARTS.find(x => x.id === CY.p.part);
+  const { B, U, R } = CY.p;
+  const m = part.m, q = part.q;
+  const T = PHYS.t10.period({ m, q, B });
+  const f = PHYS.t10.frequency({ m, q, B });
+  const vmax = PHYS.t10.vMax({ m, q, B, R });
+  const ek = PHYS.t10.energyMax({ m, q, B, R });
+  const N = PHYS.t10.crossings({ m, q, B, R, U });
+  return { part, m, q, B, U, R, T, f, vmax, ek, N };
+}
+
+function cycloReadout() {
+  const p = cycloParams();
+  $('ro-T').textContent = (p.T * 1e9).toFixed(1);
+  $('ro-f').textContent = (p.f / 1e6).toFixed(1);
+  $('ro-N').textContent = String(p.N);
+  $('ro-mv').textContent = (p.vmax / 1e7).toFixed(2);
+  $('ro-E').textContent = (p.ek / 1.602176634e-13).toFixed(2);
+  return p;
+}
+
+function buildCycloStatic(RD) {
+  clearGroup(rootCyclo);
+  rootCyclo.add(dynCyclo);
+  const g = rootCyclo;
+  const plateR = RD + 0.62;
+
+  // 地面基座
+  const base = new THREE.Mesh(new RoundedBoxGeometry(6.4, 0.3, 6.4, 3, 0.07), baseMat);
+  base.position.set(0, -1.52, 0);
+  g.add(base);
+  const stripFront = new THREE.Mesh(new THREE.BoxGeometry(5.9, 0.022, 0.045), stripMat);
+  stripFront.position.set(0, -1.36, 2.98);
+  g.add(stripFront);
+
+  // 下磁极
+  const poleBot = new THREE.Mesh(new THREE.CylinderGeometry(plateR, plateR, 0.22, 64), baseMat);
+  poleBot.position.set(0, -1.16, 0);
+  g.add(poleBot);
+
+  // 上磁极：仅用细线勾勒轮廓，俯视不挡视线
+  {
+    const pts = [];
+    for (let i = 0; i <= 96; i++) {
+      const t = Math.PI * 2 * i / 96;
+      pts.push(V((plateR - 0.02) * Math.cos(t), 1.02, (plateR - 0.02) * Math.sin(t)));
+    }
+    const ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+      new THREE.LineBasicMaterial({ color: 0x4A7A88, transparent: true, opacity: 0.65 }));
+    g.add(ring);
+  }
+  const poleGlass = new THREE.Mesh(new THREE.CircleGeometry(plateR - 0.08, 64), new THREE.MeshBasicMaterial({
+    color: 0x2E6B78, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false
+  }));
+  poleGlass.rotation.x = -Math.PI / 2;
+  poleGlass.position.set(0, 1.02, 0);
+  g.add(poleGlass);
+  // 磁极支柱（左右各一根，位于 D 形盒外）
+  for (const s of [-1, 1]) {
+    const c = new THREE.Mesh(new RoundedBoxGeometry(0.11, 2.3, 0.11, 3, 0.02), darkMat);
+    c.position.set(s * (plateR - 0.05), -0.12, -plateR + 0.2);
+    g.add(c);
+  }
+
+  // 两个 D 形盒：半圆柱侧壁 + 底/顶沿弧线（不封顶，便于观察内部）
+  CY.deeMats = [];
+  for (const side of [1, -1]) {
+    const theta = side > 0 ? 0 : Math.PI;
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x47707E, metalness: 0.88, roughness: 0.28, transparent: true, opacity: 0.44,
+      side: THREE.DoubleSide, emissive: 0x123642, emissiveIntensity: 0.9
+    });
+    const wall = new THREE.Mesh(
+      new THREE.CylinderGeometry(RD, RD, 0.5, 72, 1, true, theta, Math.PI), mat
+    );
+    wall.position.set(side * 0.055, 0, 0);
+    g.add(wall);
+    CY.deeMats.push({ side, mat });
+
+    // 上、下沿弧线，让半圆轮廓清楚
+    for (const y of [-0.25, 0.25]) {
+      const pts = [];
+      for (let i = 0; i <= 72; i++) {
+        const t = theta + Math.PI * i / 72;
+        pts.push(V(side * 0.055 + RD * Math.sin(t), y, RD * Math.cos(t)));
+      }
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+        new THREE.LineBasicMaterial({ color: 0x6FD3E4, transparent: true, opacity: y > 0 ? 0.8 : 0.45 }));
+      g.add(line);
+    }
+
+    // 顶面极淡的盖，提示 D 形盒是空腔
+    const lid = new THREE.Mesh(
+      new THREE.CircleGeometry(RD, 72, theta, Math.PI),
+      new THREE.MeshBasicMaterial({ color: 0x7DD3FC, transparent: true, opacity: 0.05, side: THREE.DoubleSide, depthWrite: false })
+    );
+    lid.rotation.x = Math.PI / 2;
+    lid.position.set(side * 0.055, 0.255, 0);
+    g.add(lid);
+
+    // 极性符号
+    const plus = label3d('＋', '#F87171', 0.4);
+    plus.position.set(side * RD * 0.32, 0.76, 0.05);
+    const minus = label3d('－', '#7DD3FC', 0.4);
+    minus.position.copy(plus.position);
+    g.add(plus, minus);
+    CY.deeMats[CY.deeMats.length - 1].plus = plus;
+    CY.deeMats[CY.deeMats.length - 1].minus = minus;
+  }
+
+  // 加速间隙的两条发光边（极性随动画变化）
+  CY.strips = [];
+  for (const side of [1, -1]) {
+    const mat = new THREE.MeshBasicMaterial({ color: 0xE2635F, transparent: true, opacity: 0.62 });
+    const s = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.4, 2 * RD - 0.04), mat);
+    s.position.set(side * 0.055, 0, 0);
+    g.add(s);
+    CY.strips.push({ mat, side });
+  }
+
+  // 磁场（竖直向上）
+  const NR = Math.max(3, Math.round(RD / 0.42));
+  for (let ix = -NR; ix <= NR; ix++) {
+    for (let iz = -NR; iz <= NR; iz++) {
+      const x = ix * 0.42, z = iz * 0.42;
+      if (Math.hypot(x, z) < RD * 0.88) {
+        g.add(fieldArrow(x, -0.52, z, V(0, 1, 0), 0.42, 0x5FB3C4, 0.3, 0.045));
+      }
+    }
+  }
+
+  // 高频交变电源
+  const psx = plateR + 0.42;
+  const ps = new THREE.Mesh(new RoundedBoxGeometry(0.7, 0.6, 0.7, 3, 0.05), plateMat);
+  ps.position.set(psx, -1.05, 0);
+  g.add(ps);
+  const coil = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.042, 12, 28), glowMat(0x4BE3C2));
+  coil.rotation.x = Math.PI / 2;
+  coil.position.set(psx, -0.67, 0);
+  g.add(coil);
+  const led = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 10), glowMat(0xA7F3D0));
+  led.position.set(psx, -0.67, 0.34);
+  g.add(led);
+  g.add(tubeBetween(V(psx - 0.3, -0.98, 0.26), V(0.1, -0.2, RD * 0.66), 0.024, 0x4A6B76));
+  g.add(tubeBetween(V(psx - 0.3, -0.98, -0.26), V(-0.1, -0.2, -RD * 0.66), 0.024, 0x4A6B76));
+
+  // 中心离子源
+  const src = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.08, 0.26, 14), darkMat);
+  src.position.set(0, -0.52, 0);
+  g.add(src);
+  const srcGlow = new THREE.Mesh(new THREE.SphereGeometry(0.05, 14, 10), glowMat(0xA7F3D0));
+  srcGlow.position.set(0, -0.37, 0);
+  g.add(srcGlow);
+
+  // 标签
+  const add = (txt, x, y, z, color, size = 0.3) => {
+    const s = label3d(txt, color, size); s.position.set(x, y, z); g.add(s);
+  };
+  add('D₁', -RD * 0.74, 0.46, -0.45, '#9FE6C4', 0.27);
+  add('D₂', RD * 0.74, 0.46, -0.45, '#9FE6C4', 0.27);
+  add('加速间隙', -0.55, 0.22, -RD * 1.12, '#F2C14E', 0.22);
+  add('磁极', -1.92, -1.0, 1.16, '#7DD3FC', 0.22);
+  add('高频交变电源', psx, -0.18, 0, '#9FE6C4', 0.2);
+  add('B ↑', 0.92, 0.12, RD * 1.06, '#5FB3C4', 0.22);
+
+  CY.staticR = RD;
+}
+
+function cycloPos(t) {
+  const { N, halfDur, totalSpin, RD } = CY;
+  if (t <= totalSpin) {
+    const u = Math.max(0, t / totalSpin);
+    const th = -Math.PI / 2 + u * N * Math.PI;
+    const nE = u * N;
+    const r = RD * Math.sqrt(Math.max(0, nE) / Math.max(1, N));
+    return V(r * Math.cos(th), 0, r * Math.sin(th));
+  }
+  const k = Math.min(1, (t - totalSpin) / CY.exitDur);
+  return CY.exitPos.clone().addScaledVector(CY.exitDir, 1.05 * k);
+}
+
+function cycloTheta(t) {
+  const u = clamp(t / CY.totalSpin, 0, 1);
+  return -Math.PI / 2 + u * CY.N * Math.PI;
+}
+
+function buildCycloDynamic() {
+  clearGroup(dynCyclo);
+  const p = cycloReadout();
+  const RD = p.R / SC;
+  CY.RD = RD;
+
+  CY.N = Math.max(1, p.N);
+  CY.halfDur = clamp(10 / CY.N, 0.045, 0.5);
+  CY.totalSpin = CY.N * CY.halfDur;
+  CY.exitDur = 0.45;
+
+  const endTh = -Math.PI / 2 + CY.N * Math.PI;
+  const eps = 2e-3;
+  const rEnd = RD;
+  const e0 = V(rEnd * Math.cos(endTh - eps), 0, rEnd * Math.sin(endTh - eps));
+  const e1 = V(rEnd * Math.cos(endTh + eps), 0, rEnd * Math.sin(endTh + eps));
+  CY.exitPos = V(rEnd * Math.cos(endTh), 0, rEnd * Math.sin(endTh));
+  CY.exitDir = e1.sub(e0).normalize();
+
+  const part = p.part;
+  const color = part.color;
+
+  // 预测轨迹
+  const pts = [];
+  const steps = 520;
+  for (let k = 0; k <= steps; k++) {
+    const u = k / steps;
+    const th = -Math.PI / 2 + u * CY.N * Math.PI;
+    const r = RD * Math.sqrt(u);
+    pts.push(V(r * Math.cos(th), 0, r * Math.sin(th)));
+  }
+  CY.ghost = dashedGhost(pts, color, 0.2);
+  dynCyclo.add(CY.ghost);
+
+  // 粒子
+  const mesh = new THREE.Mesh(
+    new THREE.SphereGeometry(0.075, 26, 20),
+    new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 2.0, roughness: 0.34 })
+  );
+  dynCyclo.add(mesh);
+  const light = new THREE.PointLight(color, 1.1, 2.4, 2);
+  dynCyclo.add(light);
+
+  const trail = makeTrail(12000, color);
+  dynCyclo.add(trail.line);
+
+  CY.items = [{ mesh, light, trail, lastT: 0 }];
+
+  // 引出靶
+  const target = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.5, 0.1, 3, 0.03), darkMat);
+  target.position.copy(CY.exitPos).addScaledVector(CY.exitDir, 1.16);
+  target.lookAt(CY.exitPos);
+  target.rotateY(Math.PI / 2);
+  dynCyclo.add(target);
+  const targetGlow = new THREE.Mesh(new THREE.CircleGeometry(0.16, 24), new THREE.MeshBasicMaterial({
+    color: 0xF2C14E, side: THREE.DoubleSide
+  }));
+  targetGlow.position.copy(CY.exitPos).addScaledVector(CY.exitDir, 1.1);
+  targetGlow.lookAt(CY.exitPos);
+  dynCyclo.add(targetGlow);
+
+  state.total = CY.totalSpin + CY.exitDur;
+  state.t = 0;
+  for (const it of CY.items) it.trail.clear();
+}
+
+function rebuildCyclo(force = false) {
+  const p = cycloReadout();
+  const RD = p.R / SC;
+  if (force || Math.abs(RD - CY.staticR) > 1e-4) buildCycloStatic(RD);
+  buildCycloDynamic();
+}
+
+/* ================= 主循环 ================= */
+const clock = new THREE.Clock();
+let firstFrame = true;
+let hold = 0;
+
+function stepSpec(dt) {
+  state.t += dt;
+  for (const it of SPEC.items) {
+    const local = state.t - it.path.delay;
+    if (local < 0) { it.mesh.visible = false; continue; }
+    it.mesh.visible = true;
+    const tt = Math.min(local, it.path.total);
+    const p = specPos(it.path, tt);
+    it.mesh.position.copy(p);
+
+    // 子采样补点，保证轨迹平滑
+    const last = it.lastT;
+    if (tt > last) {
+      const n = Math.max(1, Math.ceil((tt - last) / 0.006));
+      for (let k = 1; k <= n; k++) it.trail.push(specPos(it.path, last + (tt - last) * k / n));
+      it.lastT = tt;
+    }
+  }
+}
+
+function stepCyclo(dt) {
+  state.t += dt;
+  const it = CY.items[0];
+  if (!it) return;
+  const tt = Math.min(state.t, state.total);
+  const p = cycloPos(tt);
+  it.mesh.position.copy(p);
+  it.light.position.copy(p);
+
+  const last = it.lastT;
+  if (tt > last) {
+    const n = Math.max(1, Math.ceil((tt - last) / 0.005));
+    for (let k = 1; k <= n; k++) it.trail.push(cycloPos(last + (tt - last) * k / n));
+    it.lastT = tt;
+  }
+
+  // 极性与间隙高亮
+  const th = cycloTheta(tt);
+  const inRight = Math.cos(th) > 0 && tt < CY.totalSpin;
+  for (const s of CY.strips) {
+    const isNeg = (s.side > 0) === inRight;
+    s.mat.color.setHex(isNeg ? 0x6FC3E8 : 0xE2635F);
+  }
+  for (const d of CY.deeMats || []) {
+    const isNeg = (d.side > 0) === inRight;
+    d.mat.emissive.setHex(isNeg ? 0x1E5B78 : 0x6E2424);
+    d.plus.visible = !isNeg;
+    d.minus.visible = isNeg;
+  }
+
+  // 间隙附近的加速闪光
+  const u = clamp(tt / CY.totalSpin, 0, 1) * CY.N;
+  const near = Math.abs(u - Math.round(u)) < 0.08 && tt < CY.totalSpin;
+  if (near) CY.strips.forEach(s => s.mat.color.setHex(0xF2C14E));
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const raw = Math.min(clock.getDelta(), 0.05);
+  const dt = raw * state.speed;
+
+  if (!state.paused) {
+    if (state.mode === 'spec') {
+      stepSpec(dt);
+      if (state.t > state.total + 1.8) { hold = 0; restart(); }
+    } else {
+      stepCyclo(dt);
+      if (state.t > state.total + 1.8) { hold = 0; restart(); }
+    }
+  }
+
+  if (state.camTween > 0) {
+    state.camTween -= raw * 1.8;
+    camera.position.lerp(camGoal.pos, 0.10);
+    controls.target.lerp(camGoal.target, 0.10);
+  }
+
+  controls.update();
+  composer.render();
+
+  if (firstFrame) {
+    firstFrame = false;
+    document.title = '质谱仪·回旋加速器_OK';
+  }
+}
+
+function restart() {
+  state.t = 0;
+  state.paused = false;
+  $('pause').textContent = '暂停';
+  if (state.mode === 'spec') {
+    for (const it of SPEC.items) { it.trail.clear(); it.lastT = 0; it.mesh.visible = it.path.delay <= 0; }
+  } else {
+    for (const it of CY.items) { it.trail.clear(); it.lastT = 0; }
+  }
+}
+
+/* ================= 控件 ================= */
+function bindSpec() {
+  $('s-v').addEventListener('input', e => {
+    SPEC.params.v = +e.target.value * 1e6;
+    $('val-v').textContent = (+e.target.value).toFixed(2);
+    buildSpec();
+  });
+  $('s-B2').addEventListener('input', e => {
+    SPEC.params.B2 = +e.target.value;
+    $('val-B2').textContent = (+e.target.value).toFixed(3);
+    buildSpec();
+  });
+}
+
+function bindCyclo() {
+  $('s-B').addEventListener('input', e => {
+    CY.p.B = +e.target.value;
+    $('val-B').textContent = (+e.target.value).toFixed(2);
+    rebuildCyclo();
+  });
+  $('s-U').addEventListener('input', e => {
+    CY.p.U = +e.target.value * 1000;
+    $('val-U').textContent = (+e.target.value).toFixed(0);
+    rebuildCyclo();
+  });
+  $('s-R').addEventListener('input', e => {
+    CY.p.R = +e.target.value / 100;
+    $('val-R').textContent = (+e.target.value).toFixed(1).replace('.0', '');
+    rebuildCyclo();
+  });
+  document.querySelectorAll('#parts button').forEach(b => {
+    b.addEventListener('click', () => {
+      CY.p.part = b.dataset.p;
+      document.querySelectorAll('#parts button').forEach(x =>
+        x.setAttribute('aria-pressed', String(x === b)));
+      rebuildCyclo();
+    });
+  });
+}
+
+function bindCommon() {
+  document.querySelectorAll('.sp').forEach(b => {
+    b.addEventListener('click', () => {
+      state.speed = +b.dataset.s;
+      document.querySelectorAll('.sp').forEach(x =>
+        x.setAttribute('aria-pressed', String(x === b)));
+    });
+  });
+  $('pause').addEventListener('click', togglePause);
+  $('reset').addEventListener('click', restart);
+  $('mode-spec').addEventListener('click', () => setMode('spec'));
+  $('mode-cyclo').addEventListener('click', () => setMode('cyclo'));
+
+  addEventListener('keydown', e => {
+    if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+    if (e.key === 'r' || e.key === 'R') restart();
+  });
+  addEventListener('resize', () => {
+    camera.aspect = innerWidth / innerHeight;
+    camera.fov = camera.aspect < 0.9 ? 62 : 42;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    composer.setSize(innerWidth, innerHeight);
+  });
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  $('pause').textContent = state.paused ? '继续' : '暂停';
+}
+
+/* ================= 启动 ================= */
+buildSpecStatic();
+rebuildCyclo(true);
+bindSpec();
+bindCyclo();
+bindCommon();
+camera.fov = camera.aspect < 0.9 ? 62 : 42;
+camera.updateProjectionMatrix();
+setMode(location.hash.startsWith('#cyclo') ? 'cyclo' : 'spec');
+
+// 便于截图的起始时刻（#t=6 表示直接从第 6 秒开始并暂停）
+{
+  const m = location.hash.match(/t=([\d.]+)/);
+  if (m) {
+    for (let i = 0; i < Math.ceil(+m[1] / 0.02); i++) {
+      if (state.mode === 'spec') stepSpec(0.02); else stepCyclo(0.02);
+    }
+    state.paused = true;
+    $('pause').textContent = '继续';
+  }
+}
+
+animate();
+</script>
+</body>
+</html>

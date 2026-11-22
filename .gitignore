@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 .superpowers/
 tests/out_*.html
+!gallery/qr.png
+gallery/demos/*.html

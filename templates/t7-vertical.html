@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>T7 · 竖直运动 · 升降机与螺钉</title>
+<style>
+  :root{
+    --bg:#080F12; --panel:rgba(12,26,32,.84); --line:rgba(126,214,220,.22);
+    --ink:#E4F1F3; --muted:#88A3AA; --brand:#4ADE80; --cyan:#7DD3FC;
+    --warn:#F2C14E; --bad:#F87171; --violet:#C4B5FD;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  canvas{display:block}
+  body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;
+    background:radial-gradient(ellipse at 50% 47%,transparent 44%,rgba(0,0,0,.5) 100%)}
+  .hud{position:fixed;inset:0;pointer-events:none;z-index:2}
+  header{position:absolute;left:24px;top:20px;max-width:452px}
+  .eyebrow{font-size:11.5px;letter-spacing:.16em;color:var(--brand);opacity:.85;margin:0 0 6px}
+  h1{font-size:20px;font-weight:600;margin:0;letter-spacing:.02em}
+  h1 small{display:block;font-size:12px;font-weight:400;color:var(--muted);margin-top:6px;line-height:1.55}
+  .readout{position:absolute;left:24px;top:132px;display:grid;gap:7px;font-variant-numeric:tabular-nums}
+  .ro{display:flex;align-items:baseline;gap:8px;font-size:12.5px;color:var(--muted)}
+  .ro b{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:16px;color:var(--ink);font-weight:500}
+  .ro span{min-width:104px}
+
+  .panel{position:absolute;right:22px;bottom:22px;pointer-events:auto;
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    padding:14px 16px 12px;backdrop-filter:blur(10px);width:262px}
+  .cap{font-size:11px;color:var(--muted);margin:0 0 6px;letter-spacing:.08em}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button,.act button{
+    flex:1;font:inherit;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+    background:transparent;color:var(--muted);border:1px solid var(--line);white-space:nowrap;
+  }
+  .seg button[aria-pressed="true"]{background:rgba(74,222,128,.14);border-color:var(--brand);color:var(--brand)}
+  .act{display:flex;gap:8px}
+  .act button:hover{border-color:var(--brand);color:var(--brand)}
+
+  .answer{position:absolute;left:24px;bottom:22px;pointer-events:auto;width:min(480px,calc(100vw - 48px));
+    background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+    backdrop-filter:blur(10px);display:none}
+  .answer.on{display:block}
+  .answer h2{font-size:13px;margin:0 0 10px;color:var(--brand);letter-spacing:.06em}
+  .answer .f{font-family:ui-monospace,Menlo,monospace;color:var(--cyan)}
+  .answer b{color:var(--brand);font-family:ui-monospace,Menlo,monospace}
+  .drift{font-size:12px;color:var(--warn);border:1px solid rgba(242,193,78,.35);
+    background:rgba(242,193,78,.10);border-radius:8px;padding:6px 9px;margin:0 0 10px}
+  .drift[hidden]{display:none}
+
+  .problem{position:absolute;right:22px;top:20px;max-width:min(420px,calc(100vw - 44px));
+    pointer-events:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:10px 14px;backdrop-filter:blur(10px);font-size:12.5px;color:var(--muted)}
+  .problem summary{cursor:pointer;color:var(--ink);font-size:12.5px;list-style:none}
+  .problem summary::-webkit-details-marker{display:none}
+  .problem summary::before{content:"▸ ";color:var(--brand)}
+  .problem[open] summary::before{content:"▾ "}
+  .problem p{margin:8px 0 0;line-height:1.7;color:var(--muted)}
+
+  .hint{position:absolute;left:24px;bottom:8px;font-size:11px;color:var(--muted);opacity:.55}
+  @media (max-width:760px){
+    header{left:16px;top:12px;max-width:none;right:16px} h1{font-size:16px} h1 small{font-size:11px}
+    .readout{left:16px;top:110px;gap:4px} .ro span{min-width:82px} .ro b{font-size:14px}
+    .panel{left:12px;right:12px;bottom:12px;width:auto}
+    .answer{left:12px;right:12px;bottom:184px;width:auto}
+    .hint{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="hud">
+  <header>
+    <p class="eyebrow">力学 · 竖直运动演示</p>
+    <h1>升降机与脱落的螺钉
+      <small>底板以 5 m/s 匀速上升 · t=0 螺钉脱离，此后只受重力 · 4 s 后底板到井口，螺钉同时落到井底</small>
+    </h1>
+  </header>
+
+  <div class="readout">
+    <div class="ro"><span id="lb-t">时间 t</span><b id="ro-t">0.00 s</b></div>
+    <div class="ro"><span id="lb-h">螺钉高度</span><b id="ro-h">60.00 m</b></div>
+    <div class="ro"><span id="lb-H">底板高度</span><b id="ro-L">60.00 m</b></div>
+    <div class="ro"><span id="lb-v">螺钉速度</span><b id="ro-v">+5.00 m/s</b></div>
+  </div>
+
+  <details class="problem">
+    <summary>题目原文</summary>
+    <p>升降机从井底以 5 m/s 的速度向上匀速运行，某时刻一螺钉从升降机底板松脱，再经过 4 s 升降机底板上升至井口，此时螺钉刚好落到井底。不计空气阻力，取重力加速度 g=10 m/s²。下列说法正确的是（　）<br>
+    A．螺钉松脱后做自由落体运动　B．矿井的深度为 80 m<br>
+    C．螺钉落到井底时的速度大小为 35 m/s　D．螺钉松脱后运动的整个过程中平均速率为 15 m/s</p>
+  </details>
+
+  <div class="answer" id="answer">
+    <div id="drift" class="drift" hidden>已偏离题目条件，读数仅供参考</div>
+    <h2>答案解析</h2>
+    <div id="answer-body" style="font-size:13px;line-height:1.8">
+      设松脱时底板距井底 <span class="f">h</span>，4 s 内底板上升 5×4 = 20 m，故井深 <span class="f">H = h + 20</span>。<br>
+      螺钉做竖直上抛：<span class="f">h + 5×4 − ½×10×4² = 0</span>，得 h = 60 m，<b id="ro-HW">80.00</b> m。<br>
+      落到井底时 <span class="f">v = 5 − 10×4 = −35 m/s</span>，大小 <b id="ro-VE">35.00</b> m/s。<br>
+      先上升 1.25 m 再下落 61.25 m，路程 62.5 m，平均速率 <b id="ro-VA">15.63</b> m/s ≠ 15 m/s（D 错）。<br>
+      <span style="color:#7DD3FC">换到升降机参考系</span>：松脱瞬间相对速度为 0，螺钉相对底板就是自由落体，
+      <span class="f">½gt² = 80 m</span>——这 80 m 正好就是井深（A 错在“对地”不是自由落体）。<br>
+      答案：<b>BC</b>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="cap">参考系</div>
+    <div class="seg">
+      <button id="f-ground" aria-pressed="true">地面参考系</button>
+      <button id="f-lift" aria-pressed="false">随升降机</button>
+    </div>
+    <div class="seg">
+      <button id="btn-answer" aria-pressed="false">看答案</button>
+    </div>
+    <div class="cap">播放速度</div>
+    <div class="seg" id="speed-row">
+      <button class="sp" data-s="0.25">¼×</button>
+      <button class="sp" data-s="0.5" aria-pressed="true">½×</button>
+      <button class="sp" data-s="1">1×</button>
+      <button class="sp" data-s="2">2×</button>
+    </div>
+    <div class="act">
+      <button id="pause">暂停</button>
+      <button id="reset">重播</button>
+    </div>
+  </div>
+
+  <div class="hint">拖动旋转视角 · 滚轮缩放 · 空格暂停 · R 重播</div>
+</div>
+
+<script id="expect" type="application/json">{"HW": 80, "VE": 35, "VA": 15.63}</script>
+<script src="../src/physics.js"></script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "../lib/three.module.js",
+    "three/addons/controls/OrbitControls.js": "../lib/OrbitControls.js",
+    "three/addons/geometries/RoundedBoxGeometry.js": "../lib/RoundedBoxGeometry.js",
+    "three/addons/environments/RoomEnvironment.js": "../lib/RoomEnvironment.js",
+    "@post/postprocessing/EffectComposer.js": "../lib/post/postprocessing/EffectComposer.js",
+    "@post/postprocessing/Pass.js": "../lib/post/postprocessing/Pass.js",
+    "@post/postprocessing/ShaderPass.js": "../lib/post/postprocessing/ShaderPass.js",
+    "@post/postprocessing/MaskPass.js": "../lib/post/postprocessing/MaskPass.js",
+    "@post/postprocessing/RenderPass.js": "../lib/post/postprocessing/RenderPass.js",
+    "@post/postprocessing/UnrealBloomPass.js": "../lib/post/postprocessing/UnrealBloomPass.js",
+    "@post/postprocessing/OutputPass.js": "../lib/post/postprocessing/OutputPass.js",
+    "@post/shaders/CopyShader.js": "../lib/post/shaders/CopyShader.js",
+    "@post/shaders/LuminosityHighPassShader.js": "../lib/post/shaders/LuminosityHighPassShader.js",
+    "@post/shaders/OutputShader.js": "../lib/post/shaders/OutputShader.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer } from '@post/postprocessing/EffectComposer.js';
+import { RenderPass } from '@post/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '@post/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '@post/postprocessing/OutputPass.js';
+
+/* ================= 题目数值层 ================= */
+const P = {
+  g: 10,          // m/s²
+  v0: 5,          // 底板匀速上升速度 = 螺钉初速度
+  T: 4,           // s，从松脱到螺钉落底
+  y0: 60,         // m，松脱时底板距井底
+  WELL: 80,       // m，井口高度
+};
+const SCALE = 0.1;                 // 1 场景单位 = 10 m
+const u = m => m * SCALE;          // 米 → 场景单位
+const T_END = P.T;
+const HOLD = 1.3;                  // 结束后停留时间（秒）
+
+/* ================= 舞台 ================= */
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x080F12);
+scene.fog = new THREE.Fog(0x080F12, 20, 46);
+
+const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
+camera.position.set(5.2, 5.6, 13.2);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+{
+  const c = document.createElement('canvas');
+  c.width = 4; c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createLinearGradient(0, 0, 0, 256);
+  g.addColorStop(0, '#0a1620'); g.addColorStop(0.6, '#070e14'); g.addColorStop(1, '#04080b');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, 4, 256);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  scene.background = tex;
+}
+
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+composer.addPass(new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.55, 0.5, 0.9));
+composer.addPass(new OutputPass());
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 4.0, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.minDistance = 3;
+controls.maxDistance = 26;
+
+scene.add(new THREE.HemisphereLight(0xbfe9ff, 0x111a1e, 0.75));
+const key = new THREE.DirectionalLight(0xd9fbff, 1.7);
+key.position.set(6, 10, 7);
+scene.add(key);
+const fill = new THREE.DirectionalLight(0x6fb7c9, 0.6);
+fill.position.set(-6, 2, 6);
+scene.add(fill);
+const under = new THREE.PointLight(0x4ade80, 0.8, 6, 2);
+under.position.set(0, 0.6, 0.8);
+scene.add(under);
+
+/* ================= 工具 ================= */
+function label3d(text, color = '#9FE6C4', size = 0.26) {
+  const c = document.createElement('canvas');
+  c.width = 512; c.height = 128;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = color;
+  ctx.font = 'bold 64px "PingFang SC", sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 256, 68);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+  s.scale.set(size * 4, size, 1);
+  s.renderOrder = 4;
+  return s;
+}
+// 轨迹柱：可读性比 1px 线好，投影上看得见
+function makeBar(color = 0x4ADE80) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(0.026, 1, 0.026),
+    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthTest: false }));
+  mesh.renderOrder = 3;
+  let a = null, b = null;
+  return {
+    mesh,
+    set(from, to, x = 0, z = 0) {
+      a = from; b = to;
+      const lo = Math.min(a, b), hi = Math.max(a, b);
+      mesh.scale.y = Math.max(1e-4, hi - lo);
+      mesh.position.set(x, (lo + hi) / 2, z);
+      mesh.visible = hi - lo > 1e-3;
+    },
+    clear() { mesh.visible = false; },
+  };
+}
+function dashedLine(a, b, color = 0xF2C14E) {
+  const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+  const mat = new THREE.LineDashedMaterial({ color, dashSize: 0.12, gapSize: 0.09, transparent: true, opacity: 0.85 });
+  const l = new THREE.Line(geo, mat);
+  l.computeLineDistances();
+  return l;
+}
+function markDrift(on) { const el = document.getElementById('drift'); if (el) el.hidden = !on; }
+
+/* ================= 控制 ================= */
+let speed = 0.5, paused = false, onReset = () => {};
+const spBtns = [...document.querySelectorAll('.sp')];
+function setSpeed(v) { speed = v; spBtns.forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.s === v))); }
+spBtns.forEach(b => b.addEventListener('click', () => setSpeed(+b.dataset.s)));
+document.getElementById('pause').addEventListener('click', togglePause);
+document.getElementById('reset').addEventListener('click', () => onReset());
+document.getElementById('btn-answer').addEventListener('click', ev => {
+  const on = !document.getElementById('answer').classList.contains('on');
+  document.getElementById('answer').classList.toggle('on', on);
+  ev.currentTarget.setAttribute('aria-pressed', String(on));
+});
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pause').textContent = paused ? '继续' : '暂停';
+}
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+  if (e.key === 'r' || e.key === 'R') { onReset(); }
+});
+
+/* ================= 场景 ================= */
+const metal = new THREE.MeshStandardMaterial({ color: 0x2C3E47, metalness: 0.85, roughness: 0.32, envMapIntensity: 1.0 });
+const darkMetal = new THREE.MeshStandardMaterial({ color: 0x1A272E, metalness: 0.8, roughness: 0.5 });
+const glassMat = new THREE.MeshPhysicalMaterial({
+  color: 0x9fd8e6, metalness: 0, roughness: 0.12, transmission: 0.9, thickness: 0.4,
+  transparent: true, opacity: 0.35, side: THREE.DoubleSide,
+});
+const glowGreen = new THREE.MeshBasicMaterial({ color: 0x4ADE80 });
+const glowCyan = new THREE.MeshBasicMaterial({ color: 0x7DD3FC });
+const glowOrange = new THREE.MeshStandardMaterial({ color: 0xF2A33D, emissive: 0xF2A33D, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.3 });
+
+const W = 1.9, H = u(P.WELL);   // 井筒宽、高（场景单位）
+
+// 井底
+const floor = new THREE.Mesh(new RoundedBoxGeometry(W + 0.5, 0.18, W + 0.5, 3, 0.05), metal);
+floor.position.set(0, -0.09, 0);
+scene.add(floor);
+{
+  const ring = new THREE.Mesh(new THREE.BoxGeometry(W + 0.5, 0.03, W + 0.5), glowGreen);
+  ring.position.set(0, 0.01, 0);
+  scene.add(ring);
+}
+
+// 井口框架
+{
+  const bar = 0.12;
+  for (const [w, d, x, z] of [[W + 0.5, bar, 0, (W + 0.5) / 2], [W + 0.5, bar, 0, -(W + 0.5) / 2],
+                              [bar, W + 0.5, (W + 0.5) / 2, 0], [bar, W + 0.5, -(W + 0.5) / 2, 0]]) {
+    const b = new THREE.Mesh(new RoundedBoxGeometry(w, bar, d, 3, 0.03), metal);
+    b.position.set(x, H + 0.05, z);
+    scene.add(b);
+  }
+  const ring2 = new THREE.Mesh(new THREE.BoxGeometry(W + 0.44, 0.02, W + 0.44), glowCyan);
+  ring2.position.set(0, H + 0.12, 0);
+  scene.add(ring2);
+}
+
+// 侧壁（玻璃）+ 背板 + 立柱
+{
+  const back = new THREE.Mesh(new THREE.BoxGeometry(W, H, 0.05), darkMetal);
+  back.position.set(0, H / 2, -W / 2 + 0.02);
+  scene.add(back);
+
+  for (const sx of [-1, 1]) {
+    const pane = new THREE.Mesh(new THREE.BoxGeometry(0.035, H, W), glassMat);
+    pane.position.set(sx * (W / 2 - 0.02), H / 2, 0);
+    scene.add(pane);
+  }
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    const col = new THREE.Mesh(new THREE.BoxGeometry(0.07, H, 0.07), metal);
+    col.position.set(sx * (W / 2 - 0.02), H / 2, sz * (W / 2 - 0.02));
+    scene.add(col);
+  }
+}
+
+// 深度标尺
+{
+  const x = W / 2 + 0.28;
+  const rod = new THREE.Mesh(new THREE.BoxGeometry(0.02, H, 0.02), new THREE.MeshBasicMaterial({ color: 0x5F7079 }));
+  rod.position.set(x, H / 2, 0.35);
+  scene.add(rod);
+  for (let m = 0; m <= P.WELL; m += 10) {
+    const long = m % 20 === 0;
+    const tick = new THREE.Mesh(new THREE.BoxGeometry(long ? 0.16 : 0.09, 0.014, 0.014),
+      new THREE.MeshBasicMaterial({ color: long ? 0x9FE6C4 : 0x5F7079 }));
+    tick.position.set(x + (long ? 0.08 : 0.045), u(m), 0.35);
+    scene.add(tick);
+    if (long) {
+      const lb = label3d(m + ' m', '#88A3AA', 0.17);
+      lb.position.set(x + 0.42, u(m), 0.35);
+      scene.add(lb);
+    }
+  }
+}
+
+// 松脱点标记（60 m）
+{
+  const y = u(P.y0);
+  const ring = dashedLine(new THREE.Vector3(-W / 2, y, W / 2 - 0.05), new THREE.Vector3(W / 2, y, W / 2 - 0.05), 0xF2C14E);
+  scene.add(ring);
+  const lb = label3d('松脱点 60 m', '#F2C14E', 0.2);
+  lb.position.set(-W / 2 - 0.78, y + 0.16, 0.2);
+  scene.add(lb);
+}
+{
+  const lbTop = label3d('井口 80 m', '#7DD3FC', 0.2);
+  lbTop.position.set(W / 2 + 0.76, H + 0.14, 0);
+  scene.add(lbTop);
+  const lbBot = label3d('井底 0 m', '#4ADE80', 0.2);
+  lbBot.position.set(-W / 2 - 0.55, 0.06, 0.2);
+  scene.add(lbBot);
+}
+
+// 升降机底板
+const lift = new THREE.Group();
+{
+  const plate = new THREE.Mesh(new RoundedBoxGeometry(1.5, 0.1, 1.5, 3, 0.04), metal);
+  plate.position.y = -0.05;
+  lift.add(plate);
+  for (const z of [-0.62, 0.62]) {
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(1.34, 0.025, 0.05), glowCyan);
+    strip.position.set(0, 0.012, z);
+    lift.add(strip);
+  }
+  const lb = label3d('升降机底板', '#7DD3FC', 0.21);
+  lb.position.set(-1.2, -0.22, 0);
+  lift.add(lb);
+}
+lift.position.set(0, u(P.y0), 0);
+scene.add(lift);
+
+// 螺钉
+const screw = new THREE.Group();
+{
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.2, 12), glowOrange);
+  body.position.y = 0.08;
+  screw.add(body);
+  const head = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.055, 6), glowOrange);
+  head.position.y = 0.183;
+  screw.add(head);
+  const lb = label3d('螺钉', '#F2A33D', 0.19);
+  lb.position.set(0.42, -0.1, 0);
+  screw.add(lb);
+}
+scene.add(screw);
+const screwLight = new THREE.PointLight(0xF2A33D, 0.9, 2.2, 2);
+scene.add(screwLight);
+
+// 轨迹
+const screwTrail = makeBar(0x4ADE80);
+const liftTrail = makeBar(0x7DD3FC);
+scene.add(screwTrail.mesh, liftTrail.mesh);
+
+// 相对位移标尺（升降机参考系下显示）
+const relGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, -1, 0)]);
+const relLine = new THREE.Line(relGeo, new THREE.LineDashedMaterial({
+  color: 0xC4B5FD, dashSize: 0.1, gapSize: 0.08, transparent: true, opacity: 0.9,
+}));
+relLine.computeLineDistances();
+relLine.visible = false;
+scene.add(relLine);
+
+// 速度矢量
+const vArrow = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(), 0.7, 0xF2C14E, 0.1, 0.05);
+scene.add(vArrow);
+
+/* ================= 运动 ================= */
+const state = { t: 0, frame: 'ground' };
+
+// 调试/截图用：#t=2.5 定格到该时刻；#frame=lift 进入升降机参考系
+const QS = new URLSearchParams(location.hash.replace(/^#/, ''));
+if (QS.has('t')) {
+  state.t = Math.max(0, Math.min(T_END, parseFloat(QS.get('t')) || 0));
+  paused = true;
+  document.getElementById('pause').textContent = '继续';
+}
+
+function posAt(t) {
+  const yM = PHYS.t7.height({ y0: P.y0, v0: P.v0, g: P.g, t });
+  return new THREE.Vector3(0.34, u(yM) + 0.02, 0.34);
+}
+function liftAt(t) {
+  return new THREE.Vector3(0, u(PHYS.t7.liftY({ y0: P.y0, v: P.v0, t })), 0);
+}
+
+const $ = id => document.getElementById(id);
+function fmtSigned(x) { return (x >= 0 ? '+' : '') + x.toFixed(2); }
+
+function updateHUD(t) {
+  const yS = PHYS.t7.height({ y0: P.y0, v0: P.v0, g: P.g, t });
+  const yL = PHYS.t7.liftY({ y0: P.y0, v: P.v0, t });
+  const vS = PHYS.t7.velocity({ v0: P.v0, g: P.g, t });
+  $('ro-t').textContent = t.toFixed(2) + ' s';
+
+  if (state.frame === 'ground') {
+    $('lb-h').textContent = '螺钉高度';
+    $('lb-v').textContent = '螺钉速度';
+    $('ro-h').textContent = yS.toFixed(2) + ' m';
+    $('ro-v').textContent = fmtSigned(vS) + ' m/s' + (Math.abs(vS) < 0.05 ? '（最高点）' : (vS > 0 ? ' ↑' : ' ↓'));
+  } else {
+    $('lb-h').textContent = '相对底板距离';
+    $('lb-v').textContent = '相对底板速度';
+    $('ro-h').textContent = '−' + PHYS.t7.relDrop({ g: P.g, t }).toFixed(2) + ' m';
+    $('ro-v').textContent = fmtSigned(PHYS.t7.relVelocity({ g: P.g, t })) + ' m/s ↓';
+  }
+  $('ro-L').textContent = yL.toFixed(2) + ' m';
+}
+
+/* ================= 参考系切换 ================= */
+const btnG = $('f-ground'), btnL = $('f-lift');
+function setFrame(f) {
+  state.frame = f;
+  btnG.setAttribute('aria-pressed', String(f === 'ground'));
+  btnL.setAttribute('aria-pressed', String(f === 'lift'));
+  controls.enabled = f === 'ground';
+  camAuto = 1.4;
+  relLine.visible = f === 'lift';
+  updateHUD(Math.min(state.t, T_END));
+}
+btnG.addEventListener('click', () => setFrame('ground'));
+btnL.addEventListener('click', () => setFrame('lift'));
+
+/* ================= 循环 ================= */
+const clock = new THREE.Clock();
+let firstFrame = true;
+const camGround = new THREE.Vector3(5.2, 5.6, 13.2);
+const tgtGround = new THREE.Vector3(0, 4.0, 0);
+const camOffsetLift = new THREE.Vector3(4.2, 0.9, 11.8);
+let camAuto = 0;   // >0 时镜头自动回位，之后交给用户拖动
+const tmpTarget = new THREE.Vector3();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const raw = Math.min(clock.getDelta(), 0.05);
+  const dt = raw * speed;
+
+  if (!paused) {
+    state.t += dt;
+    if (state.t > T_END + HOLD) {
+      state.t = 0;
+      screwTrail.clear();
+      liftTrail.clear();
+    }
+  }
+  const t = Math.min(state.t, T_END);
+
+  // 物体位置
+  const pS = posAt(t);
+  const pL = liftAt(t);
+  screw.position.copy(pS);
+  lift.position.copy(pL);
+
+  // 螺钉：从最高点（或起始点）画到当前位置；底板：从起始高度画到当前位置
+  const yPeak = u(PHYS.t7.peakHeight({ y0: P.y0, v0: P.v0, g: P.g }));
+  const yRef = (t < PHYS.t7.peakTime({ v0: P.v0, g: P.g })) ? u(P.y0) : yPeak;
+  screwTrail.set(yRef, pS.y, pS.x, pS.z);
+  liftTrail.set(u(P.y0), pL.y, -0.66, 0.66);
+
+  // 速度矢量
+  const vS = PHYS.t7.velocity({ v0: P.v0, g: P.g, t });
+  const len = Math.min(0.95, Math.abs(vS) * 0.022);
+  vArrow.visible = Math.abs(vS) > 0.05;
+  if (vArrow.visible) {
+    vArrow.position.copy(pS).add(new THREE.Vector3(0, 0.2, 0));
+    vArrow.setDirection(new THREE.Vector3(0, Math.sign(vS), 0));
+    vArrow.setLength(len, Math.min(0.1, len * 0.35), Math.min(0.05, len * 0.18));
+  }
+  screwLight.position.copy(pS);
+
+  // 相对位移标尺
+  if (state.frame === 'lift') {
+    const a = new THREE.Vector3(pL.x + 0.55, pL.y, pL.z);
+    const b = new THREE.Vector3(pL.x + 0.55, pS.y, pL.z);
+    relGeo.setFromPoints([a, b]);
+    relLine.computeLineDistances();
+  }
+
+  // 相机
+  if (state.frame === 'lift') {
+    tmpTarget.set(0, pL.y - u(38), 0);   // 底板留在画面上方，螺钉一路往下掉
+    controls.target.lerp(tmpTarget, 0.15);
+    camera.position.lerp(tmpTarget.clone().add(camOffsetLift), 0.15);
+  } else if (camAuto > 0) {
+    camAuto -= raw;
+    controls.target.lerp(tgtGround, 0.08);
+    camera.position.lerp(camGround, 0.08);
+  }
+
+  updateHUD(t);
+
+  controls.update();
+  composer.render();
+
+  if (firstFrame) { firstFrame = false; document.title = 'T7_OK'; }
+}
+
+onReset = () => {
+  state.t = 0;
+  screwTrail.clear();
+  liftTrail.clear();
+  if (state.frame === 'lift') { camera.position.copy(camGround); controls.target.copy(tgtGround); }
+  markDrift(false);
+};
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
+});
+
+// 答案面板里的结论用物理函数算，不写死
+{
+  const HW = PHYS.t7.relDrop({ g: P.g, t: P.T });            // 相对底板下落 80 m = 井深
+  const VE = Math.abs(PHYS.t7.velocity({ v0: P.v0, g: P.g, t: P.T }));
+  const path = PHYS.t7.pathLength({ y0: P.y0, v0: P.v0, yEnd: 0, g: P.g });
+  const VA = PHYS.t7.avgSpeed(path, P.T);
+  $('ro-HW').textContent = PHYS.fmt(HW);
+  $('ro-VE').textContent = PHYS.fmt(VE);
+  $('ro-VA').textContent = PHYS.fmt(VA);
+}
+
+setSpeed(0.5);
+setFrame(QS.get('frame') === 'lift' ? 'lift' : 'ground');
+screwTrail.clear(); liftTrail.clear();
+updateHUD(0);
+animate();
+</script>
+</body>
+</html>

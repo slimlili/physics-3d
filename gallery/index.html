@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>物理 3D 演示 · 扫码自己转</title>
+<style>
+  :root{
+    --green:#0E4E33; --ink:#14231b; --muted:#5f6f66;
+    --bg:#f4f8f5; --card:#fff; --line:#dbe6df; --accent:#f0b429;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+  .wrap{max-width:760px;margin:0 auto;padding:0 16px 48px}
+  header{background:var(--green);color:#fff;margin:0 -16px 18px;padding:22px 20px 20px}
+  header h1{margin:0;font-size:22px;line-height:1.3}
+  header p{margin:8px 0 0;font-size:13px;opacity:.82;line-height:1.6}
+  .hero{display:flex;gap:16px;align-items:center;background:#fff;border:1px solid var(--line);
+    border-radius:16px;padding:14px;margin-bottom:18px}
+  .hero img{width:104px;height:104px;border-radius:10px;background:#fff;flex:none}
+  .hero div{font-size:14px;line-height:1.7;color:var(--muted)}
+  .hero b{display:block;color:var(--ink);font-size:15px;margin-bottom:2px}
+  .cards{display:grid;gap:12px}
+  .card{display:block;background:var(--card);border:1px solid var(--line);border-radius:14px;
+    padding:16px 18px;text-decoration:none;color:inherit;transition:border-color .15s,transform .15s}
+  .card:active{transform:scale(.99);border-color:var(--green)}
+  .card h2{margin:0 0 4px;font-size:17px;color:var(--green)}
+  .card p{margin:0;font-size:14px;line-height:1.6;color:var(--muted)}
+  .card .go{float:right;color:var(--green);font-size:13px;margin-top:2px}
+  footer{margin-top:22px;font-size:12px;color:var(--muted);line-height:1.7;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>物理 3D 演示</h1>
+    <p>带电粒子在磁场、组合场中的运动，以及追及相遇。<br>手指拖动旋转，双指缩放；不用装软件，打开就能转。</p>
+  </header>
+
+  <section class="hero">
+    <img src="qr.png" alt="扫码打开">
+    <div><b>扫码自己转</b>手机扫码进入本页；也可以把链接发给学生课后看。每个演示都是单文件，断网也能打开。</div>
+  </section>
+
+  <section class="cards">
+    <a class="card" href="demos/t1.html">
+      <span class="go">打开 →</span><h2>匀强磁场中的圆周运动</h2>
+      <p>速度与磁场垂直时，粒子做匀速圆周运动；看清半径、周期与速度方向的关系。</p>
+    </a>
+    <a class="card" href="demos/t4.html">
+      <span class="go">打开 →</span><h2>速度选择器</h2>
+      <p>电场与磁场正交，只有特定速度的粒子能直线通过；拖动看不同速度的偏转。</p>
+    </a>
+    <a class="card" href="demos/t9.html">
+      <span class="go">打开 →</span><h2>质谱仪 · 回旋加速器</h2>
+      <p>两件经典仪器的工作原理：粒子如何被加速、如何按质量分离。</p>
+    </a>
+    <a class="card" href="demos/t5.html">
+      <span class="go">打开 →</span><h2>组合场 · 装置化</h2>
+      <p>电场、磁场、无场区串联，一段一段看轨迹怎么接起来。</p>
+    </a>
+    <a class="card" href="demos/t8.html">
+      <span class="go">打开 →</span><h2>追及相遇 · 两车</h2>
+      <p>换个运动学主题：两车同向运动，什么时候追上、什么时候相遇两次。</p>
+    </a>
+  </section>
+
+  <footer>每个文件内联了渲染引擎，不依赖网络 · 建议用手机横屏观看</footer>
+</div>
+</body>
+</html>
